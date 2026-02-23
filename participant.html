@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
-<body class="dash-page">
+<body class="dash-page participant-page">
 <div class="bg-mesh"></div>
 
 <header class="topbar">
@@ -35,10 +35,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
     </button>
     <button class="sb-btn" onclick="showView('r1')">
-      <span class="round-tag round-1" style="font-size:9px;">R1</span>Round 1
+      <span class="round-tag round-1">R1</span>Round 1
     </button>
     <button class="sb-btn" id="sb-r2" onclick="showView('r2')" style="opacity:0.4;pointer-events:none;">
-      <span class="round-tag round-2" style="font-size:9px;">R2</span>Round 2
+      <span class="round-tag round-2">R2</span>Round 2
     </button>
     <div class="sb-label">History</div>
     <button class="sb-btn" onclick="showView('history')">
@@ -193,9 +193,9 @@ async function loadHome() {
         <span class="round-tag ${r.cls}">ROUND ${r.round}</span>
         <span class="badge ${r.open?'badge-neon':'badge-dim'}">${r.open?'OPEN':'CLOSED'}</span>
       </div>
-      <p style="font-size:13px;color:var(--text3);margin-bottom:16px;">${r.desc}</p>
+      <p style="margin-bottom:16px;">${r.desc}</p>
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">⏱ ${r.limit} min default</span>
+        <span style="font-family:var(--font-mono);">⏱ ${r.limit} min default</span>
         <button class="btn btn-sm ${r.btnCls}" ${r.action} ${r.action ? '' : 'disabled'}>${r.btnTxt}</button>
       </div>
     </div>

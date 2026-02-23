@@ -11,6 +11,7 @@
 <body class="login-page">
 <div class="bg-mesh"></div>
 <div class="scanlines"></div>
+<div class="starfield" id="starfield" aria-hidden="true"></div>
 
 <!-- Loading Splash Screen -->
 <div id="splash-screen" class="splash-screen">
@@ -35,7 +36,7 @@
 
   <div>
     <div style="margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;">Competition Format</div>
+      <div style="font-size:11px;font-weight:700;color:var(--white);text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;">Competition Format</div>
       <div class="rounds-showcase">
         <div class="round-pill">
           <div class="round-num">ROUND 1</div>
@@ -67,7 +68,6 @@
     <!-- DB Status Indicator -->
     <div id="db-status" style="margin-top:16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text3);">
       <span id="db-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0;"></span>
-      <span id="db-msg">Connecting to Supabase…</span>
     </div>
   </div>
 </div>
@@ -220,6 +220,146 @@ async function doLogin() {
     msg.style.color = 'var(--red)';
     msg.textContent = '✗ DB connection failed — check SUPABASE_KEY in app.js';
   }
+})();
+</script>
+<script>
+// Lightweight parallax for login-left layers
+(function(){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const container = document.querySelector('.login-left');
+  if (!container) return;
+
+  const brand = container.querySelector('.brand');
+  const rounds = container.querySelector('.rounds-showcase');
+  const terminal = container.querySelector('.terminal-widget');
+  const db = container.querySelector('#db-status');
+
+  let raf = null;
+  container.addEventListener('mousemove', (e) => {
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 .. 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      if (brand) brand.style.transform = `translateY(${ -y * 10 }px) translateX(${ x * 8 }px) rotateX(${ -y * 3 }deg) rotateY(${ x * 4 }deg)`;
+      if (rounds) rounds.style.transform = `translateY(${ -y * 6 }px) translateX(${ x * 10 }px)`;
+      if (terminal) terminal.style.transform = `translateY(${ -y * 4 }px) translateX(${ x * 14 }px)`;
+      if (db) db.style.transform = `translateY(${ y * 6 }px) translateX(${ x * 6 }px)`;
+    });
+  });
+
+  container.addEventListener('mouseleave', () => {
+    cancelAnimationFrame(raf);
+    [brand, rounds, terminal, db].forEach(el => { if (el) el.style.transform = ''; });
+  });
+})();
+</script>
+<script>
+// Starfield: cluster all stars around cursor while avoiding overlap (sunflower layout)
+(function(){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const root = document.getElementById('starfield');
+  if (!root) return;
+
+  const STAR_COUNT = 220; // increased density
+  const stars = [];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~2.39996
+  const W = () => window.innerWidth;
+  const H = () => window.innerHeight;
+
+  // create stars and precompute polar placement index
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const el = document.createElement('div');
+    const r = Math.random();
+    const cls = r > 0.97 ? 'large' : r > 0.72 ? 'medium' : 'small';
+    el.className = `star ${cls}` + (Math.random() > 0.82 ? ' twinkle' : '');
+    const x = Math.random() * W();
+    const y = Math.random() * H();
+    const depth = 0.02 + Math.random() * 0.22; // lower depth = closer reaction
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    root.appendChild(el);
+
+    // sunflower distribution parameters (used when clustering at cursor)
+    const a = i * goldenAngle;
+    const k = (i + 1) / STAR_COUNT; // 0..1
+    const radial = Math.sqrt(k); // densest near center
+
+    stars.push({
+      el, cx: x, cy: y, tx: x, ty: y, depth,
+      angle: a, radial, sizeClass: cls,
+      driftAmp: 2 + Math.random()*6, driftSpeed: 0.0006 + Math.random()*0.0022, driftPhase: Math.random()*Math.PI*2
+    });
+  }
+
+  let mouseX = W()/2, mouseY = H()/2, lastMove = 0;
+
+  window.addEventListener('mousemove', (e)=>{ mouseX = e.clientX; mouseY = e.clientY; lastMove = performance.now(); }, {passive:true});
+  window.addEventListener('mouseleave', ()=> { lastMove = performance.now() - 1600; });
+  window.addEventListener('resize', ()=>{
+    // reposition homes randomly on resize to keep field full-screen
+    stars.forEach(s => { s.cx = Math.random()*W(); s.cy = Math.random()*H(); s.tx = s.cx; s.ty = s.cy; s.el.style.left = s.cx + 'px'; s.el.style.top = s.cy + 'px'; });
+    mouseX = W()/2; mouseY = H()/2;
+  });
+
+  // parameters
+  const MAX_CLUSTER_RADIUS = Math.min(W(), H()) * 0.18; // maximum spread around cursor
+  const IDLE_RETURN_MS = 1000; // time to start returning
+
+  function animate(now){
+    const t = now || performance.now();
+    const since = Math.max(0, t - lastMove);
+    // smoothstep easing for follow factor for a softer start/stop
+    const raw = Math.max(0, 1 - (since / IDLE_RETURN_MS)); // 1 -> 0
+    const followFactor = raw * raw * (3 - 2 * raw);
+
+    // update max radius adaptively (slightly jittered for realism)
+    const maxR = MAX_CLUSTER_RADIUS * (0.85 + 0.15 * Math.sin(t*0.00012));
+
+    for (let i=0;i<stars.length;i++){
+      const s = stars[i];
+
+      // compute cluster target around mouse using sunflower coordinates
+      const targetClusterR = maxR * s.radial * (0.45 + 0.55 * (1 - s.depth));
+      const cx = mouseX + Math.cos(s.angle) * targetClusterR;
+      const cy = mouseY + Math.sin(s.angle) * targetClusterR;
+
+      if (followFactor > 0.02) {
+        // desired is blend between cluster position and home position
+        const desiredX = s.cx * (1 - followFactor) + cx * followFactor;
+        const desiredY = s.cy * (1 - followFactor) + cy * followFactor;
+
+        // per-star subtle sinusoidal micro-drift
+        const driftX = Math.sin(t * s.driftSpeed + s.driftPhase) * s.driftAmp * (0.24 + s.depth*0.25);
+        const driftY = Math.cos(t * (s.driftSpeed*1.07) + s.driftPhase) * (s.driftAmp*0.45) * (0.24 + s.depth*0.2);
+
+        // smoother lerp (lower coefficient) for less jitter
+        const lerp = 0.10 + s.depth*0.03;
+        s.tx += ((desiredX + driftX) - s.tx) * lerp;
+        s.ty += ((desiredY + driftY) - s.ty) * lerp;
+      } else {
+        // idle: gently return to home with drift
+        const driftX = Math.sin(t * s.driftSpeed + s.driftPhase) * s.driftAmp * 0.5;
+        const driftY = Math.cos(t * (s.driftSpeed*1.07) + s.driftPhase) * (s.driftAmp*0.38);
+        const lerpIdle = 0.07 + s.depth*0.02;
+        s.tx += ((s.cx + driftX) - s.tx) * lerpIdle;
+        s.ty += ((s.cy + driftY) - s.ty) * lerpIdle;
+      }
+
+      // small per-star micro-jitter (float, no rounding) to avoid perfect overlap
+      const jitterX = Math.sin(s.angle * 3.7 + i) * 0.18;
+      const jitterY = Math.cos(s.angle * 2.1 + i) * 0.18;
+
+      const dx = (s.tx - s.cx + jitterX);
+      const dy = (s.ty - s.cy + jitterY);
+      s.el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  requestAnimationFrame(animate);
 })();
 </script>
 </body>
