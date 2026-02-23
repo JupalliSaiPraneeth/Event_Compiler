@@ -198,6 +198,8 @@ async function doLogin() {
     }
     sessionStorage.setItem('da_role', 'participant');
     sessionStorage.setItem('da_user', u);
+      // Signal participant page to show the login animation once
+      sessionStorage.setItem('showLoginLoader', '1');
     window.location.href = 'participant.html';
   } catch (e) {
     showErr('DB Error: ' + e.message);

@@ -6,9 +6,301 @@
 <title>Participant — DebugArena</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+      /* Login success loader (namespaced with da- to avoid conflicts) */
+      #da-login-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        display: none; /* shown only after successful login */
+        justify-content: center;
+        align-items: center;
+        z-index: 99999;
+        transition: opacity 0.5s ease;
+      }
+      .da-content-box { text-align: center; }
+      .da-glitch {
+        position: relative; color: #fff; font-size: clamp(40px, 10vw, 80px); font-weight: bold;
+        letter-spacing: 12px; text-transform: uppercase; text-shadow: 0 0 10px rgba(0,255,0,0.3);
+      }
+      .da-glitch::before, .da-glitch::after { content: attr(data-text); position: absolute; top:0; left:0; width:100%; height:100%; background:black; opacity:0.8; }
+      .da-glitch::before { left:3px; text-shadow:-3px 0 #00ff00; clip:rect(24px,999px,30px,0); animation: da-glitch-anim 4s infinite linear alternate-reverse; }
+      .da-glitch::after  { left:-3px; text-shadow:3px 0 #fff; clip:rect(65px,999px,75px,0); animation: da-glitch-anim 2.5s infinite linear alternate-reverse; }
+      .da-sub-text { color:#00ff00; font-size:clamp(14px,3vw,20px); margin-top:15px; letter-spacing:4px; text-transform:uppercase; animation: da-flicker 2.5s infinite; }
+      .da-progress-container { width:250px; height:1px; background:rgba(0,255,0,0.1); margin:40px auto 0; position:relative; overflow:hidden; }
+      .da-progress-bar { position:absolute; height:100%; width:50%; background:#00ff00; box-shadow:0 0 15px #00ff00; animation: da-progress-move 2s infinite ease-in-out; }
+      @keyframes da-glitch-anim { 0%,15%,100% { clip: rect(0,0,0,0); } 5% { clip: rect(15px,9999px,25px,0); transform: skew(1deg); } 10% { clip: rect(50px,9999px,55px,0); transform: skew(-1deg); } }
+      @keyframes da-flicker { 0%,18%,22%,25%,53%,57%,100% { opacity:1; text-shadow:0 0 8px rgba(0,255,0,0.6); } 20%,24%,55% { opacity:0.2; text-shadow:none; } }
+      @keyframes da-progress-move { 0% { left:-50%; } 100% { left:100%; } }
+      /* Welcome overlay - Enhanced Professional Awesome Animation */
+      #da-welcome {
+        position: fixed; inset:0; display:none; z-index:99998; justify-content:center; align-items:center; transition:opacity 0.5s ease; color:#fff;
+        background: radial-gradient(ellipse 150% 150% at 50% 50%, rgba(0,245,160,0.08) 0%, rgba(0,0,0,0.98) 100%);
+        backdrop-filter: blur(2px);
+      }
+      
+      /* Animated background particles */
+      #da-welcome::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: 
+          radial-gradient(500px circle at 20% 30%, rgba(0,245,160,0.15) 0%, transparent 100%),
+          radial-gradient(800px circle at 80% 70%, rgba(0,212,255,0.1) 0%, transparent 100%),
+          radial-gradient(600px circle at 50% 100%, rgba(191,90,242,0.08) 0%, transparent 100%);
+        animation: da-bg-pulse 6s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .da-welcome-box {
+        text-align: center;
+        padding: 40px;
+        backdrop-filter: blur(12px);
+        background: linear-gradient(135deg, rgba(5,8,16,0.6) 0%, rgba(13,18,32,0.4) 100%);
+        border: 1px solid rgba(0,245,160,0.15);
+        border-radius: 16px;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 8px 32px rgba(0,245,160,0.1), 0 0 40px rgba(0,212,255,0.05);
+        transform-origin: center;
+        max-width: 600px;
+        width: 90%;
+      }
+      
+      .da-welcome-box.showing {
+        animation: da-welcome-container-in 800ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+      
+      .da-welcome-box h1 {
+        font-family: 'Orbitron', monospace;
+        font-weight: 900;
+        letter-spacing: 2px;
+        font-size: clamp(32px, 8vw, 56px);
+        margin-bottom: 16px;
+        color: #fff;
+        transform-origin: center;
+        display: block;
+        background: linear-gradient(135deg, #00ff99 0%, #00ffd5 25%, #66d9ff 50%, #00b4ff 75%, #00ff99 100%);
+        background-size: 300% 300%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: da-gradient-shift 4s ease-in-out infinite, da-text-pulse 3s ease-in-out infinite;
+        text-shadow: 0 0 30px rgba(0,255,160,0.2);
+        filter: drop-shadow(0 0 20px rgba(0,255,160,0.15));
+      }
+      
+      .da-welcome-box h1.showing {
+        animation: da-welcome-title-in 900ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards, 
+                   da-gradient-shift 4s ease-in-out 900ms infinite,
+                   da-text-pulse 3s ease-in-out 900ms infinite;
+      }
+      
+      .da-welcome-box .da-name {
+        background: linear-gradient(135deg, #ffd86b 0%, #ff9ad5 50%, #8b5cf6 100%);
+        background-size: 300% 300%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline;
+        padding: 0 8px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        animation: da-gradient-shift 4s ease-in-out infinite;
+      }
+      
+      .da-welcome-box p {
+        color: #a6ffcb;
+        letter-spacing: 2px;
+        margin-top: 12px;
+        opacity: 0.9;
+        font-size: clamp(14px, 3vw, 18px);
+        font-family: 'JetBrains Mono', monospace;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      
+      .da-welcome-box p.showing {
+        animation: da-subtitle-in 800ms 300ms cubic-bezier(0.2, 0.9, 0.2, 1) both,
+                   da-subtle-glow 3s ease-in-out 800ms infinite;
+      }
+      
+      /* Decorative accent lines */
+      .da-welcome-box::before,
+      .da-welcome-box::after {
+        content: '';
+        position: absolute;
+        height: 1px;
+        width: 80px;
+        background: linear-gradient(90deg, transparent, #00ff99, transparent);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: -1;
+      }
+      
+      .da-welcome-box::before {
+        top: 20px;
+        animation: da-line-expand 800ms 200ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      }
+      
+      .da-welcome-box::after {
+        bottom: 20px;
+        animation: da-line-expand 800ms 400ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      }
+      
+      /* Key frame animations */
+      @keyframes da-welcome-container-in {
+        from {
+          opacity: 0;
+          transform: scale(0.85) translateY(20px);
+          filter: blur(8px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+          filter: blur(0);
+        }
+      }
+      
+      @keyframes da-welcome-title-in {
+        0% {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.9);
+          letter-spacing: 4px;
+        }
+        50% {
+          letter-spacing: 2px;
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          letter-spacing: 2px;
+        }
+      }
+      
+      @keyframes da-subtitle-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 0.9;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes da-gradient-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      
+      @keyframes da-text-pulse {
+        0%, 100% { filter: drop-shadow(0 0 10px rgba(0,255,160,0.3)); }
+        50% { filter: drop-shadow(0 0 20px rgba(0,255,160,0.6)); }
+      }
+      
+      @keyframes da-subtle-glow {
+        0%, 100% { color: #a6ffcb; text-shadow: 0 0 10px rgba(166,255,203,0.2); }
+        50% { color: #00ffcc; text-shadow: 0 0 20px rgba(0,255,204,0.4); }
+      }
+      
+      @keyframes da-line-expand {
+        from {
+          width: 0;
+          opacity: 0;
+        }
+        to {
+          width: 100%;
+          opacity: 1;
+        }
+      }
+      
+      @keyframes da-bg-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 1.2; }
+      }
+
+      /* Advanced welcome animations with stagger */
+      @keyframes da-float-in {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .da-welcome-box.showing h1 {
+        color: transparent;
+      }
+
+      /* Ensure smooth performance with will-change */
+      .da-welcome-box, .da-welcome-box h1, .da-welcome-box p {
+        will-change: transform, opacity;
+      }
+      .da-confetti {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        opacity: 0.95;
+        transform-origin: center;
+        pointer-events: none;
+        z-index: 99999;
+        box-shadow: 0 0 8px currentColor;
+      }
+      
+      .da-confetti.type-particle {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      
+      .da-confetti.type-sparkle {
+        width: 4px;
+        height: 4px;
+        animation: da-confetti-sparkle 0.8s 0.5s forwards !important;
+      }
+      
+      @keyframes da-confetti-fall {
+        to {
+          transform: translate3d(var(--tx,0px), var(--ty,200px), 0) rotateZ(var(--rot,360deg));
+          opacity: 0;
+        }
+      }
+      
+      @keyframes da-confetti-sparkle {
+        0%, 100% { opacity: 0.8; filter: blur(0); }
+        50% { opacity: 1; filter: blur(2px) brightness(1.3); }
+      }
+    </style>
 </head>
-<body class="dash-page participant-page">
+<body class="dash-page">
 <div class="bg-mesh"></div>
+
+<!-- Login success loader overlay (shown once after login) -->
+<div id="da-login-loader">
+  <div class="da-content-box">
+    <h1 class="da-glitch" data-text="ERRORS">ERRORS</h1>
+    <p class="da-sub-text">Go And Fix Them</p>
+    <div class="da-progress-container"><div class="da-progress-bar"></div></div>
+  </div>
+</div>
+
+<!-- Welcome overlay (shown after glitch loader) -->
+<div id="da-welcome">
+  <div class="da-welcome-box" id="da-welcome-box">
+    <h1>Welcome, <span class="da-name" id="da-wname">Participant</span>!</h1>
+    <p id="da-wsub">⚡ Your competitive coding journey starts here. Compete, solve, and conquer.</p>
+  </div>
+</div>
 
 <header class="topbar">
   <div class="tb-brand">
@@ -35,10 +327,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
     </button>
     <button class="sb-btn" onclick="showView('r1')">
-      <span class="round-tag round-1">R1</span>Round 1
+      <span class="round-tag round-1" style="font-size:9px;">R1</span>Round 1
     </button>
     <button class="sb-btn" id="sb-r2" onclick="showView('r2')" style="opacity:0.4;pointer-events:none;">
-      <span class="round-tag round-2">R2</span>Round 2
+      <span class="round-tag round-2" style="font-size:9px;">R2</span>Round 2
     </button>
     <div class="sb-label">History</div>
     <button class="sb-btn" onclick="showView('history')">
@@ -124,6 +416,7 @@
 <script>
 Auth.check('participant');
 const ME = Auth.user();
+window.DA_ME = ME; // expose for animations
 document.getElementById('p-name').textContent = ME;
 document.getElementById('p-av').textContent = ME[0].toUpperCase();
 
@@ -193,9 +486,9 @@ async function loadHome() {
         <span class="round-tag ${r.cls}">ROUND ${r.round}</span>
         <span class="badge ${r.open?'badge-neon':'badge-dim'}">${r.open?'OPEN':'CLOSED'}</span>
       </div>
-      <p style="margin-bottom:16px;">${r.desc}</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px;">${r.desc}</p>
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:var(--font-mono);">⏱ ${r.limit} min default</span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">⏱ ${r.limit} min default</span>
         <button class="btn btn-sm ${r.btnCls}" ${r.action} ${r.action ? '' : 'disabled'}>${r.btnTxt}</button>
       </div>
     </div>
@@ -349,6 +642,122 @@ async function startSession(problemId, round, lang) {
 
 // Init
 showView('home');
+</script>
+<script>
+// Show the login animation once if signaled by the login page
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const shouldShow = sessionStorage.getItem('showLoginLoader');
+    if (shouldShow === '1') {
+      const loader = document.getElementById('da-login-loader');
+      const welcome = document.getElementById('da-welcome');
+      if (loader) {
+        const FULL_ANIM_MS = 4700; // full glitch animation duration
+        const WELCOME_MS = 3200;   // extended welcome display time for animations
+
+        // show loader
+        loader.style.display = 'flex'; loader.style.opacity = '0';
+        requestAnimationFrame(() => { loader.style.opacity = '1'; });
+
+        // after glitch completes, fade loader and then show welcome
+        setTimeout(() => {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.style.display = 'none';
+
+            // show welcome overlay (personalized)
+            if (welcome) {
+              const box = document.getElementById('da-welcome-box');
+              const nameEl = document.getElementById('da-wname');
+              const name = (window.DA_ME || '').toString() || 'Participant';
+              if (nameEl) nameEl.textContent = name.toUpperCase();
+
+              welcome.style.display = 'flex'; welcome.style.opacity = '0';
+              requestAnimationFrame(() => {
+                welcome.style.opacity = '1';
+                if(box) {
+                  box.classList.add('showing');
+                  const h1 = box.querySelector('h1');
+                  const p = box.querySelector('p');
+                  if(h1) h1.classList.add('showing');
+                  if(p) p.classList.add('showing');
+                }
+              });
+
+              // spawn enhanced confetti burst with multiple waves
+              (function spawnConfetti() {
+                const PARTICLE_COUNT = 42;
+                const WAVES = 2;
+                const colors = ['#00ff99','#00ffd5','#66d9ff','#00b4ff','#ffd86b','#ff9ad5','#8b5cf6','#7efc88'];
+                const glowColors = {
+                  '#00ff99': 'rgba(0,255,153,0.6)',
+                  '#00ffd5': 'rgba(0,255,213,0.6)',
+                  '#66d9ff': 'rgba(102,217,255,0.6)',
+                  '#00b4ff': 'rgba(0,180,255,0.6)',
+                  '#ffd86b': 'rgba(255,216,107,0.6)',
+                  '#ff9ad5': 'rgba(255,154,213,0.6)',
+                  '#8b5cf6': 'rgba(139,92,246,0.6)',
+                  '#7efc88': 'rgba(127,252,136,0.6)',
+                };
+
+                for (let wave = 0; wave < WAVES; wave++) {
+                  setTimeout(() => {
+                    for (let i = 0; i < PARTICLE_COUNT; i++) {
+                      const el = document.createElement('div');
+                      el.className = 'da-confetti ' + (Math.random() > 0.7 ? 'type-sparkle' : 'type-particle');
+                      const color = colors[Math.floor(Math.random() * colors.length)];
+                      el.style.background = color;
+                      el.style.color = color;
+                      el.style.boxShadow = `0 0 12px ${glowColors[color]}`;
+
+                      // wider spread
+                      const angle = (Math.random() * Math.PI * 2);
+                      const distance = 80 + Math.random() * 200;
+                      const rx = Math.cos(angle) * distance;
+                      const ry = Math.sin(angle) * distance - 100;
+
+                      // varied fall distances
+                      const tx = (Math.random() - 0.5) * 400 + 'px';
+                      const ty = (Math.random() * 400 + 150) + 'px';
+
+                      el.style.left = (window.innerWidth/2 + rx) + 'px';
+                      el.style.top = (window.innerHeight/2 + ry) + 'px';
+                      el.style.setProperty('--tx', tx);
+                      el.style.setProperty('--ty', ty);
+                      el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                      el.style.opacity = Math.random() * 0.6 + 0.6;
+
+                      document.body.appendChild(el);
+
+                      // staggered animation
+                      const duration = 1.5 + Math.random() * 1.2;
+                      el.style.animation = `da-confetti-fall ${duration}s cubic-bezier(0.2, 0.8, 0.3, 1) forwards`;
+                      el.style.animationDelay = (wave * 0.3) + 's';
+
+                      setTimeout(() => el.remove(), (duration * 1000) + (wave * 300) + 500);
+                    }
+                  }, wave * 300);
+                }
+              })();
+
+              // hide welcome after a short time
+              setTimeout(() => {
+                if(box) box.classList.remove('showing');
+                welcome.style.opacity = '0';
+                setTimeout(() => { welcome.style.display = 'none'; try{ sessionStorage.removeItem('showLoginLoader'); }catch{} }, 500);
+              }, WELCOME_MS);
+            } else {
+              try{ sessionStorage.removeItem('showLoginLoader'); }catch{}
+            }
+
+          }, 500); // loader fade-out
+        }, FULL_ANIM_MS);
+      } else {
+        try { sessionStorage.removeItem('showLoginLoader'); } catch{};
+      }
+    }
+  } catch (e) { console.error('Loader show failed', e); }
+});
 </script>
 </body>
 </html>

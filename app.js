@@ -366,8 +366,16 @@ function showLoading(msg = 'Loading…') {
   let el = document.getElementById('_gloader');
   if (!el) {
     el = document.createElement('div'); el.id = '_gloader';
-    el.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,12,16,0.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;';
-    el.innerHTML = `<div style="width:36px;height:36px;border-radius:50%;border:3px solid rgba(0,255,136,0.15);border-top-color:var(--neon,#00f5a0);animation:spin 0.8s linear infinite;"></div><div id="_gloader_msg" style="font-family:var(--font-mono,monospace);font-size:12px;color:var(--text3,#888);letter-spacing:2px;text-transform:uppercase;">${escapeHtml(msg)}</div>`;
+    el.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(8,12,16,0.92);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:28px;';
+    el.innerHTML = `
+      <div class="loader-container">
+        <div class="loader-box box-1" style="background:#00f5a0;"></div>
+        <div class="loader-box box-2" style="background:#00ffd5;"></div>
+        <div class="loader-box box-3" style="background:#00d4ff;"></div>
+        <div class="loader-box box-4" style="background:#ff2d55;"></div>
+      </div>
+      <div id="_gloader_msg" style="font-family:var(--font-mono,monospace);font-size:13px;color:var(--neon,#00f5a0);letter-spacing:3px;text-transform:uppercase;font-weight:700;text-shadow:0 0 10px rgba(0,245,160,0.4);">${escapeHtml(msg)}</div>
+    `;
     document.body.appendChild(el);
   } else {
     const m = document.getElementById('_gloader_msg');
