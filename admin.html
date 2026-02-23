@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — DebugArena</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="dash-page">
+<div class="bg-mesh"></div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="tb-brand">
+    <div class="tb-squares"><div class="tbs a"></div><div class="tbs b"></div><div class="tbs c"></div><div class="tbs d"></div></div>
+    <div class="tb-name">Debug<span>Arena</span> <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono);letter-spacing:2px;">ADMIN</span></div>
+  </div>
+  <div class="tb-right">
+    <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;">
+      <span id="db-live-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text3);"></span>
+      <span id="db-live-msg" style="color:var(--text3);">DB…</span>
+    </div>
+    <div class="user-pill">
+      <div class="user-av admin-av">A</div>
+      <div class="user-deets"><div class="uname">admin</div><div class="urole">Administrator</div></div>
+    </div>
+    <button class="logout-btn" onclick="Auth.logout()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Logout
+    </button>
+  </div>
+</header>
+
+<div class="dash-body">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-label">Overview</div>
+  <button class="sb-btn active" onclick="nav('dashboard')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+  </button>
+  <div class="sb-label">Round Control</div>
+  <button class="sb-btn" onclick="nav('rounds')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Round Settings
+  </button>
+  <button class="sb-btn" onclick="nav('participants')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Participants <span class="sbadge" id="sb-part-count">0</span>
+  </button>
+  <div class="sb-label">Problems</div>
+  <button class="sb-btn" onclick="nav('add-problem')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Add Problem
+  </button>
+  <button class="sb-btn" onclick="nav('problems')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+    All Problems <span class="sbadge" id="sb-prob-count">0</span>
+  </button>
+  <div class="sb-label">Reports</div>
+  <button class="sb-btn" onclick="nav('submissions')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Submissions
+  </button>
+  <button class="sb-btn" onclick="nav('code-review')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Code Review <span class="sbadge red" id="sb-review-count" style="display:none;">0</span>
+  </button>
+</aside>
+
+<!-- MAIN -->
+<main class="main-content">
+
+  <!-- DASHBOARD -->
+  <section id="sec-dashboard">
+    <div class="pg-header"><h1>COMMAND CENTER</h1><p>Monitor the competition in real-time</p></div>
+    <div class="stats-grid" id="admin-stats"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" id="round-status-cards"></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Recent Participants</span>
+        <button class="btn btn-ghost btn-sm" onclick="nav('participants')">View All →</button>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Participant</th><th>R1 Lang</th><th>R1 Status</th><th>R2 Eligible</th><th>Joined</th></tr></thead><tbody id="dash-parts-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ROUND SETTINGS -->
+  <section id="sec-rounds" class="hidden">
+    <div class="pg-header"><h1>ROUND CONTROL</h1><p>Open/close rounds and set time limits</p></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="card">
+        <div class="card-head"><span class="card-title"><span class="round-tag round-1">ROUND 1</span> Open Qualification</span></div>
+        <div class="card-body">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn btn-neon" onclick="setRound(1,true)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+              Open Round 1
+            </button>
+            <button class="btn btn-red" onclick="setRound(1,false)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              Close Round 1
+            </button>
+          </div>
+          <div id="r1-status-line" style="font-size:12px;color:var(--text3);font-family:var(--font-mono);margin-bottom:16px;"></div>
+          <label class="form-label">Default Time Limit (minutes)</label>
+          <input type="number" class="form-input" id="r1-timelimit" min="1" max="180" value="30" style="max-width:140px;margin-top:6px;">
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="saveRoundSettings()">Save</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title"><span class="round-tag round-2">ROUND 2</span> Elite Finals</span></div>
+        <div class="card-body">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn btn-gold" onclick="setRound(2,true)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+              Open Round 2
+            </button>
+            <button class="btn btn-red" onclick="setRound(2,false)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              Close Round 2
+            </button>
+          </div>
+          <div id="r2-status-line" style="font-size:12px;color:var(--text3);font-family:var(--font-mono);margin-bottom:16px;"></div>
+          <label class="form-label">Default Time Limit (minutes)</label>
+          <input type="number" class="form-input" id="r2-timelimit" min="1" max="180" value="45" style="max-width:140px;margin-top:6px;">
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="saveRoundSettings()">Save</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PARTICIPANTS -->
+  <section id="sec-participants" class="hidden">
+    <div class="pg-header"><h1>PARTICIPANTS</h1><p>Manage and track all registered participants</p></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Participant Registry</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          <input class="form-input" id="new-part-username" placeholder="New username" style="max-width:220px;" />
+          <button class="btn btn-neon btn-sm" onclick="createParticipantFromAdmin()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            Register
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="renderParticipants()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Username</th><th>R1 Lang</th><th>R1 Status</th><th>R1 Solved</th><th>R2 Eligible</th><th>R2 Status</th><th>R2 Solved</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="parts-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ADD PROBLEM -->
+  <section id="sec-add-problem" class="hidden">
+    <div class="pg-header"><h1>ADD PROBLEM</h1><p>Create a new debugging challenge</p></div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Problem Details</span></div>
+      <div class="card-body">
+        <form id="prob-form" onsubmit="publishProblem(event)">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div>
+              <label class="form-label">Language *</label>
+              <select class="form-select" id="p-lang" required>
+                <option value="">— Select —</option>
+                <option value="C">C</option>
+                <option value="Python">Python</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Round *</label>
+              <select class="form-select" id="p-round" required>
+                <option value="1">Round 1</option>
+                <option value="2">Round 2</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Difficulty</label>
+              <select class="form-select" id="p-diff">
+                <option value="Easy">Easy</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Time Limit (min) <span style="color:var(--text3);font-weight:400;">Optional</span></label>
+              <input type="number" class="form-input" id="p-time" min="1" max="180" placeholder="Round default">
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Problem Title *</label>
+            <input type="text" class="form-input" id="p-title" placeholder="e.g. Fix the Array Bounds Error" required>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Buggy Code *</label>
+            <textarea class="form-textarea" id="p-code" rows="10" placeholder="Paste the buggy code here…" required></textarea>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Expected Output *</label>
+            <textarea class="form-textarea" id="p-output" rows="3" placeholder="What the fixed code should print…" required></textarea>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Hint <span style="color:var(--text3);font-weight:400;">Optional</span></label>
+            <input type="text" class="form-input" id="p-hint" placeholder="Optional hint for participants">
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('prob-form').reset()">Clear</button>
+            <button type="submit" class="btn btn-neon" id="pub-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2l11 0 5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Publish Problem
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALL PROBLEMS -->
+  <section id="sec-problems" class="hidden">
+    <div class="pg-header"><h1>ALL PROBLEMS</h1><p>Manage and control all challenges</p></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Problems Library</span>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select btn-sm" id="prob-filter-lang" style="width:auto;" onchange="renderAllProblems()">
+            <option value="">All Languages</option><option value="C">C</option><option value="Python">Python</option>
+          </select>
+          <select class="form-select btn-sm" id="prob-filter-round" style="width:auto;" onchange="renderAllProblems()">
+            <option value="">All Rounds</option><option value="1">Round 1</option><option value="2">Round 2</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="renderAllProblems()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>#</th><th>Round</th><th>Lang</th><th>Title</th><th>Difficulty</th><th>Time Limit</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="all-probs-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- SUBMISSIONS -->
+  <section id="sec-submissions" class="hidden">
+    <div class="pg-header"><h1>SUBMISSIONS</h1><p>All participant submission results</p></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Submission Log</span>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select btn-sm" id="sub-round-filter" style="width:auto;" onchange="renderSubmissions()">
+            <option value="">All Rounds</option><option value="1">Round 1</option><option value="2">Round 2</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="renderSubmissions()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Participant</th><th>Round</th><th>Lang</th><th>Problem</th><th>Result</th><th>Time</th><th>Terminated</th><th>Submitted</th></tr></thead><tbody id="subs-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- CODE REVIEW -->
+  <section id="sec-code-review" class="hidden">
+    <div class="pg-header"><h1>CODE REVIEW</h1><p>Review and score all submissions</p></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Review Queue</span>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select btn-sm" id="cr-filter-round" style="width:auto;" onchange="renderCodeReview()">
+            <option value="">All Rounds</option><option value="1">Round 1</option><option value="2">Round 2</option>
+          </select>
+          <select class="form-select btn-sm" id="cr-filter-status" style="width:auto;" onchange="renderCodeReview()">
+            <option value="">All Status</option><option value="pending">Pending</option><option value="reviewed">Reviewed</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="renderCodeReview()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Participant</th><th>Rounds</th><th>Pass %</th><th>Submissions</th><th>Pending Reviews</th><th>Last Submitted</th><th>Actions</th></tr></thead><tbody id="cr-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- PARTICIPANT DRILLDOWN MODAL -->
+  <div id="pd-modal" class="modal-bg hidden">
+    <div class="modal" style="max-width:980px;width:95%;">
+      <div class="modal-title" id="pd-title">Participant</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px;">
+        <div class="badge badge-dim" id="pd-r1">R1: —</div>
+        <div class="badge badge-dim" id="pd-r2">R2: —</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select class="form-select btn-sm" id="pd-lang" style="width:auto;" onchange="renderParticipantDrilldown()">
+            <option value="">All Languages</option>
+            <option value="C">C</option>
+            <option value="Python">Python</option>
+          </select>
+          <select class="form-select btn-sm" id="pd-round" style="width:auto;" onchange="renderParticipantDrilldown()">
+            <option value="1">Round 1</option>
+            <option value="2">Round 2</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="renderParticipantDrilldown()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Problem</th>
+              <th>Lang</th>
+              <th>Latest Result</th>
+              <th>Attempts</th>
+              <th>Review</th>
+              <th>Score</th>
+              <th>Comment</th>
+              <th>Submitted</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="pd-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closePDModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- VIEW PROBLEM MODAL -->
+<div id="view-modal" class="modal-bg hidden">
+  <div class="modal" style="max-width:600px;width:95%;">
+    <div class="modal-title" id="vm-title"></div>
+    <div class="modal-sub" id="vm-sub"></div>
+    <span class="cmp-lbl">Buggy Code</span>
+    <div class="code-view" id="vm-code" style="max-height:300px;overflow-y:auto;"></div>
+    <span class="cmp-lbl" style="display:block;margin-top:12px;">Expected Output</span>
+    <div class="cmp-box exp" id="vm-output"></div>
+    <div id="vm-hint" style="font-size:12px;color:var(--text3);margin-top:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('view-modal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CODE REVIEW MODAL -->
+<div id="cr-modal" class="modal-bg hidden">
+  <div class="modal" style="max-width:720px;width:95%;">
+    <div class="modal-title" id="cr-m-title">Review Submission</div>
+    <div class="modal-sub" id="cr-m-sub"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div>
+        <span class="cmp-lbl" style="display:block;margin-bottom:5px;">Submitted Code</span>
+        <pre class="code-view" id="cr-m-code" style="max-height:250px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+      </div>
+      <div>
+        <span class="cmp-lbl" style="display:block;margin-bottom:5px;">Expected Output</span>
+        <div class="cmp-box exp" id="cr-m-expected" style="margin-bottom:8px;"></div>
+        <span class="cmp-lbl" style="display:block;margin-bottom:5px;">Actual Output</span>
+        <div class="cmp-box" id="cr-m-actual"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-bottom:14px;">
+      <div>
+        <label class="form-label">Score (0–100)</label>
+        <input type="number" class="form-input" id="cr-m-score" min="0" max="100" placeholder="—">
+      </div>
+      <div>
+        <label class="form-label">Admin Comment</label>
+        <input type="text" class="form-input" id="cr-m-comment" placeholder="Optional feedback…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeCRModal()">Cancel</button>
+      <button class="btn btn-neon" onclick="saveReview()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        Save Review
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+Auth.check('admin');
+
+const SECTIONS = ['dashboard','rounds','participants','add-problem','problems','submissions','code-review'];
+
+async function nav(name) {
+  SECTIONS.forEach(s => document.getElementById('sec-' + s).classList.add('hidden'));
+  document.getElementById('sec-' + name).classList.remove('hidden');
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+  const idx = SECTIONS.indexOf(name);
+  if (idx >= 0) document.querySelectorAll('.sb-btn')[idx].classList.add('active');
+  showLoading('Loading…');
+  try {
+    if (name === 'dashboard')    await renderDashboard();
+    if (name === 'rounds')       await renderRoundSettings();
+    if (name === 'participants') await renderParticipants();
+    if (name === 'problems')     await renderAllProblems();
+    if (name === 'submissions')  await renderSubmissions();
+    if (name === 'code-review')  await renderCodeReview();
+  } finally { hideLoading(); }
+}
+
+// ── PARTICIPANT DRILLDOWN ───────────────────────────────────
+let pdUser = null;
+let pdList = [];
+let pdPart = null;
+
+async function openPDModal(username) {
+  pdUser = username;
+  document.getElementById('pd-title').textContent = `Participant: ${username}`;
+  document.getElementById('pd-modal').classList.remove('hidden');
+  pdPart = await DB.getParticipant(username);
+  await renderParticipantDrilldown(true);
+}
+
+function closePDModal() {
+  document.getElementById('pd-modal').classList.add('hidden');
+  pdUser = null;
+  pdList = [];
+  pdPart = null;
+}
+
+function _pct(pass, total) {
+  if (!total) return '—';
+  return Math.round((pass / total) * 100) + '%';
+}
+
+async function renderParticipantDrilldown(forceReload) {
+  if (!pdUser) return;
+  showLoading('Loading participant…');
+  try {
+    const probs = await DB.getProblems();
+    if (forceReload || !pdList.length) {
+      const all = await DB.getAdminSubmissions();
+      pdList = (all || []).filter(s => String(s.participant_name) === String(pdUser));
+    }
+
+    const r1 = pdList.filter(s => String(s.round) === '1');
+    const r2 = pdList.filter(s => String(s.round) === '2');
+    const r1p = r1.filter(s => s.result === 'Pass').length;
+    const r2p = r2.filter(s => s.result === 'Pass').length;
+
+    document.getElementById('pd-r1').innerHTML = `R1: <span style="color:var(--neon);font-weight:800;">${_pct(r1p, r1.length)}</span> <span style="color:var(--text3);">(${r1p}/${r1.length})</span>`;
+    document.getElementById('pd-r2').innerHTML = `R2: <span style="color:var(--gold);font-weight:800;">${_pct(r2p, r2.length)}</span> <span style="color:var(--text3);">(${r2p}/${r2.length})</span>`;
+
+    const round = document.getElementById('pd-round')?.value || '1';
+    const rows = pdList.filter(s => String(s.round) === String(round));
+    const tbody = document.getElementById('pd-body');
+
+    const byProblemId = new Map();
+    rows.forEach(s => {
+      const key = String(s.problem_id || '');
+      if (!key) return;
+      const cur = byProblemId.get(key) || { attempts: 0, latest: null };
+      cur.attempts++;
+      if (!cur.latest || new Date(s.submitted_at || 0).getTime() > new Date(cur.latest.submitted_at || 0).getTime()) cur.latest = s;
+      byProblemId.set(key, cur);
+    });
+
+    const langSel = document.getElementById('pd-lang')?.value || '';
+
+    // If no language selected, default to participant chosen language for that round (if available)
+    if (!langSel) {
+      const pLang = String(round) === '2' ? (pdPart?.round2Lang || '') : (pdPart?.round1Lang || '');
+      if (pLang) document.getElementById('pd-lang').value = pLang;
+      else {
+        // fallback: most frequent language in their submissions for that round
+        const freq = rows.reduce((m, s) => {
+          const l = (s.language || '').trim();
+          if (!l) return m;
+          m[l] = (m[l] || 0) + 1;
+          return m;
+        }, {});
+        const best = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0];
+        if (best) document.getElementById('pd-lang').value = best;
+      }
+    }
+
+    const effLang = document.getElementById('pd-lang')?.value || '';
+
+    const roundProblems = (probs || []).filter(p =>
+      p.status === 'active' && String(p.round) === String(round) && (!effLang || String(p.language) === String(effLang))
+    );
+    if (!roundProblems.length) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:40px;">No problems configured for this round</td></tr>`;
+      return;
+    }
+
+    const rc_map = { Pass:'badge-neon', Fail:'badge-red', Exited:'badge-red', Terminated:'badge-red', 'Time Up':'badge-gold' };
+
+    tbody.innerHTML = roundProblems.map(p => {
+      const meta = byProblemId.get(String(p.id));
+      const s = meta?.latest || null;
+      const attempts = meta?.attempts || 0;
+      const statusTxt = s?.result || (attempts ? '—' : 'Not Attempted');
+      const statusCls = s?.result ? (rc_map[s.result] || 'badge-dim') : 'badge-dim';
+      const reviewed = !!s?.admin_reviewed;
+      const score = s?.admin_score;
+      const comment = s?.admin_comment;
+
+      return `<tr>
+        <td style="font-weight:700;color:var(--white);max-width:220px;">${escapeHtml(p.title||'Unknown')}</td>
+        <td><span class="lang-tag ${p.language==='C'?'lang-c':'lang-py'}">${escapeHtml(p.language||'?')}</span></td>
+        <td><span class="badge ${statusCls}">${escapeHtml(statusTxt)}</span></td>
+        <td style="font-family:var(--font-mono);">${attempts || '—'}</td>
+        <td>${s ? (reviewed?'<span class="badge badge-neon">✓ Reviewed</span>':'<span class="badge badge-gold">⏳ Pending</span>') : '<span class="badge badge-dim">—</span>'}</td>
+        <td style="font-family:var(--font-display);font-weight:800;color:var(--neon);">${s && reviewed && score!=null ? score : '—'}</td>
+        <td style="max-width:280px;color:var(--text2);">${s && reviewed && comment ? escapeHtml(comment) : '—'}</td>
+        <td style="font-size:11px;color:var(--text3);">${s?.submitted_at ? formatDate(s.submitted_at) : '—'}</td>
+        <td>
+          <button class="btn btn-neon btn-sm" ${s ? `onclick=\"openCRModal('${s.id}')\"` : 'disabled'}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Review
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function createParticipantFromAdmin() {
+  const inp = document.getElementById('new-part-username');
+  const username = (inp?.value || '').trim();
+  if (!username) { Toast.show('Enter a username', 'warn'); return; }
+  if (!/^[a-zA-Z0-9_\- ]{2,30}$/.test(username)) { Toast.show('Username: 2–30 chars, letters/numbers only.', 'warn'); return; }
+  showLoading('Registering…');
+  try {
+    const p = await DB.registerParticipant(username);
+    if (!p) throw new Error('Could not register. Check DB connection.');
+    Toast.show(`Registered ${username}`, 'success');
+    if (inp) inp.value = '';
+    await renderParticipants();
+    updateSidebarCounts();
+  } catch (e) {
+    Toast.show(e.message || 'Registration failed', 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function updateSidebarCounts() {
+  const [probs, parts, adminSubs] = await Promise.all([DB.getProblems(), DB.getParticipants(), DB.getAdminSubmissions()]);
+  document.getElementById('sb-part-count').textContent = parts.length;
+  document.getElementById('sb-prob-count').textContent = probs.length;
+  const pending = adminSubs.filter(s => !s.admin_reviewed).length;
+  const badge = document.getElementById('sb-review-count');
+  badge.textContent = pending;
+  badge.style.display = pending > 0 ? 'inline-block' : 'none';
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────
+async function renderDashboard() {
+  const [probs, parts, subs, rs] = await Promise.all([
+    DB.getProblems(), DB.getParticipants(), DB.getSubmissions(), DB.getRoundState()
+  ]);
+  updateSidebarCounts();
+
+  const active = probs.filter(p => p.status === 'active').length;
+  const passed = subs.filter(s => s.result === 'Pass').length;
+
+  const ICONS = {
+    participants: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    problems: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`,
+    submissions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg>`,
+    passed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`
+  };
+
+  document.getElementById('admin-stats').innerHTML = [
+    { label: 'Participants', val: parts.length,  cls: 'neon',  icon: ICONS.participants },
+    { label: 'Problems',     val: probs.length,  cls: 'cyan',  icon: ICONS.problems },
+    { label: 'Submissions',  val: subs.length,   cls: 'gold',  icon: ICONS.submissions },
+    { label: 'Passed',       val: passed,        cls: 'neon',  icon: ICONS.passed },
+  ].map(s => `<div class="stat-card ${s.cls}">
+    <div class="stat-icon">${s.icon}</div>
+    <div class="stat-val">${s.val}</div>
+    <div class="stat-lbl">${s.label}</div>
+  </div>`).join('');
+
+  document.getElementById('round-status-cards').innerHTML = [
+    { round: 1, open: rs.round1Open, limit: rs.round1TimeLimit, cls: 'round-1' },
+    { round: 2, open: rs.round2Open, limit: rs.round2TimeLimit, cls: 'round-2' },
+  ].map(r => `<div class="card" style="border-color:${r.open ? 'var(--neon)' : 'var(--bg3)'}">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">
+      <span class="round-tag ${r.cls}">ROUND ${r.round}</span>
+      <span class="badge ${r.open ? 'badge-neon' : 'badge-dim'}">${r.open ? 'OPEN' : 'CLOSED'}</span>
+    </div>
+    <div style="padding:0 20px 16px;font-size:12px;color:var(--text3);">Default time limit: ${r.limit} min</div>
+  </div>`).join('');
+
+  const tbody = document.getElementById('dash-parts-body');
+  if (!parts.length) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:30px;">No participants yet</td></tr>`; return; }
+  tbody.innerHTML = parts.slice(-10).reverse().map(p => `<tr>
+    <td style="font-weight:700;color:var(--white);">${escapeHtml(p.username)}</td>
+    <td>${p.round1Lang ? `<span class="lang-tag ${p.round1Lang==='C'?'lang-c':'lang-py'}">${p.round1Lang}</span>` : '—'}</td>
+    <td><span class="badge badge-dim">${p.round1Status}</span></td>
+    <td>${p.round2Eligible ? '<span class="badge badge-neon">✓ Yes</span>' : '<span class="badge badge-dim">No</span>'}</td>
+    <td style="font-size:11px;color:var(--text3);">${formatDate(p.joinedAt)}</td>
+  </tr>`).join('');
+}
+
+// ── ROUNDS ─────────────────────────────────────────────────
+async function renderRoundSettings() {
+  const rs = await DB.getRoundState();
+  document.getElementById('r1-timelimit').value = rs.round1TimeLimit;
+  document.getElementById('r2-timelimit').value = rs.round2TimeLimit;
+  document.getElementById('r1-status-line').innerHTML = `Status: <strong style="color:${rs.round1Open?'var(--neon)':'var(--red)'}">${rs.round1Open?'OPEN':'CLOSED'}</strong>`;
+  document.getElementById('r2-status-line').innerHTML = `Status: <strong style="color:${rs.round2Open?'var(--neon)':'var(--red)'}">${rs.round2Open?'OPEN':'CLOSED'}</strong>`;
+}
+
+async function setRound(num, open) {
+  showLoading(open ? `Opening Round ${num}…` : `Closing Round ${num}…`);
+  const rs = await DB.getRoundState();
+  if (num === 1) rs.round1Open = open;
+  else rs.round2Open = open;
+  await DB.saveRoundState(rs);
+  hideLoading();
+  Toast.show(`Round ${num} ${open ? 'opened' : 'closed'}`, open ? 'success' : 'warn');
+  await renderRoundSettings();
+}
+
+async function saveRoundSettings() {
+  showLoading('Saving…');
+  const rs = await DB.getRoundState();
+  rs.round1TimeLimit = parseInt(document.getElementById('r1-timelimit').value) || 30;
+  rs.round2TimeLimit = parseInt(document.getElementById('r2-timelimit').value) || 45;
+  await DB.saveRoundState(rs);
+  hideLoading();
+  Toast.show('Settings saved', 'success');
+}
+
+// ── PARTICIPANTS ───────────────────────────────────────────
+async function renderParticipants() {
+  const [parts, subs] = await Promise.all([DB.getParticipants(), DB.getSubmissions()]);
+  const tbody = document.getElementById('parts-body');
+  if (!parts.length) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:40px;">No participants yet</td></tr>`; return; }
+  tbody.innerHTML = parts.map(p => {
+    const mySubs = subs.filter(s => s.participantName === p.username);
+    return `<tr>
+      <td style="font-weight:700;color:var(--white);">${escapeHtml(p.username)}</td>
+      <td>${p.round1Lang ? `<span class="lang-tag ${p.round1Lang==='C'?'lang-c':'lang-py'}">${p.round1Lang}</span>` : '—'}</td>
+      <td><span class="badge badge-dim">${p.round1Status}</span></td>
+      <td style="font-family:var(--font-mono);color:var(--neon);">${p.round1Completed}</td>
+      <td>
+        <button class="btn btn-sm ${p.round2Eligible?'btn-red':'btn-neon'}" onclick="toggleR2Eligibility('${p.username}',${p.round2Eligible})">
+          ${p.round2Eligible ? '✗ Remove' : '✓ Grant'}
+        </button>
+      </td>
+      <td><span class="badge badge-dim">${p.round2Status}</span></td>
+      <td style="font-family:var(--font-mono);color:var(--gold);">${p.round2Completed}</td>
+      <td style="font-size:11px;color:var(--text3);">${formatDate(p.joinedAt)}</td>
+      <td>
+        <div class="acts">
+          <button class="act-btn del" onclick="removeParticipant('${p.username}')" title="Remove">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleR2Eligibility(username, current) {
+  showLoading('Updating…');
+  await DB.updateParticipant(username, { round2Eligible: !current });
+  hideLoading();
+  Toast.show(`Round 2 eligibility ${!current ? 'granted' : 'removed'} for ${username}`, 'info');
+  await renderParticipants();
+}
+
+async function removeParticipant(username) {
+  if (!confirm(`Remove participant "${username}"? This cannot be undone.`)) return;
+  showLoading('Removing…');
+  await DB.deleteParticipant(username);
+  hideLoading();
+  Toast.show(`${username} removed`, 'error');
+  await renderParticipants();
+  updateSidebarCounts();
+}
+
+// ── PROBLEMS ───────────────────────────────────────────────
+async function renderAllProblems() {
+  let probs = await DB.getProblems();
+  const lf = document.getElementById('prob-filter-lang')?.value;
+  const rf = document.getElementById('prob-filter-round')?.value;
+  if (lf) probs = probs.filter(p => p.language === lf);
+  if (rf) probs = probs.filter(p => String(p.round) === rf);
+  probs = [...probs].reverse();
+  const tbody = document.getElementById('all-probs-body');
+  if (!probs.length) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:40px;">No problems found</td></tr>`; return; }
+  const diffCls = { Easy:'badge-neon', Medium:'badge-cyan', Hard:'badge-red' };
+  tbody.innerHTML = probs.map((p, i) => `<tr>
+    <td style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">${i+1}</td>
+    <td><span class="round-tag round-${p.round}">R${p.round}</span></td>
+    <td><span class="lang-tag ${p.language==='C'?'lang-c':'lang-py'}">${p.language}</span></td>
+    <td style="font-weight:700;color:var(--white);max-width:200px;">${escapeHtml(p.title)}</td>
+    <td><span class="badge ${diffCls[p.difficulty]||'badge-dim'}">${p.difficulty||'Medium'}</span></td>
+    <td style="font-family:var(--font-mono);color:var(--yellow);">${p.timeLimit ? p.timeLimit+'m' : '<span style="color:var(--text3)">Round default</span>'}</td>
+    <td><span class="badge ${p.status==='active'?'badge-neon':'badge-dim'}">${p.status}</span></td>
+    <td style="font-size:11px;color:var(--text3);">${formatDate(p.createdAt)}</td>
+    <td>
+      <div class="acts">
+        <button class="act-btn" onclick="viewProblem('${p.id}')" title="View">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="act-btn approve" onclick="toggleProblem('${p.id}')" title="Toggle status">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        </button>
+        <button class="act-btn del" onclick="deleteProblem('${p.id}')" title="Delete">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+async function publishProblem(e) {
+  e.preventDefault();
+  const btn = document.getElementById('pub-btn');
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  const prob = await DB.addProblem({
+    language: document.getElementById('p-lang').value,
+    round: parseInt(document.getElementById('p-round').value),
+    timeLimit: document.getElementById('p-time').value ? parseInt(document.getElementById('p-time').value) : null,
+    difficulty: document.getElementById('p-diff').value,
+    title: document.getElementById('p-title').value.trim(),
+    buggyCode: document.getElementById('p-code').value.trim(),
+    expectedOutput: document.getElementById('p-output').value.trim(),
+    hint: document.getElementById('p-hint').value.trim(),
+  });
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2l11 0 5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Publish Problem`;
+  if (prob) { document.getElementById('prob-form').reset(); updateSidebarCounts(); nav('problems'); }
+}
+
+async function deleteProblem(id) {
+  if (!confirm('Delete this problem?')) return;
+  showLoading('Deleting…');
+  await DB.deleteProblem(id);
+  hideLoading();
+  Toast.show('Problem deleted', 'error');
+  await renderAllProblems();
+  updateSidebarCounts();
+}
+
+async function toggleProblem(id) {
+  showLoading('Updating…');
+  const p = await DB.toggleProblem(id);
+  hideLoading();
+  if (p) Toast.show(`Problem ${p.status}`, 'info');
+  await renderAllProblems();
+}
+
+async function viewProblem(id) {
+  const p = await DB.getProblem(id);
+  if (!p) return;
+  document.getElementById('vm-title').textContent = p.title;
+  document.getElementById('vm-sub').textContent = `${p.language} · Round ${p.round} · ${p.timeLimit ? p.timeLimit+' min' : 'No per-problem limit'} · ${p.difficulty}`;
+  document.getElementById('vm-code').textContent = p.buggyCode;
+  document.getElementById('vm-output').textContent = p.expectedOutput;
+  document.getElementById('vm-hint').textContent = p.hint ? `💡 ${p.hint}` : '';
+  document.getElementById('view-modal').classList.remove('hidden');
+}
+
+// ── SUBMISSIONS ────────────────────────────────────────────
+async function renderSubmissions() {
+  let [subs, probs] = await Promise.all([DB.getSubmissions(), DB.getProblems()]);
+  const rf = document.getElementById('sub-round-filter')?.value;
+  if (rf) subs = subs.filter(s => String(s.round) === rf);
+  const tbody = document.getElementById('subs-body');
+  if (!subs.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:40px;">No submissions yet</td></tr>`; return; }
+  tbody.innerHTML = subs.map(s => {
+    const prob = probs.find(p => p.id === s.problemId);
+    const lang = prob?.language || '?';
+    const rc = s.result==='Pass'?'badge-neon':s.result==='Time Up'?'badge-gold':'badge-red';
+    return `<tr>
+      <td style="font-weight:700;color:var(--white);">${escapeHtml(s.participantName)}</td>
+      <td><span class="round-tag round-${s.round||1}">R${s.round||1}</span></td>
+      <td><span class="lang-tag ${lang==='C'?'lang-c':'lang-py'}">${lang}</span></td>
+      <td style="font-size:12px;color:var(--text2);max-width:160px;">${escapeHtml(prob?.title||'Unknown')}</td>
+      <td><span class="badge ${rc}">${s.result}</span></td>
+      <td style="font-family:var(--font-mono);font-size:12px;">${s.timeTaken||'—'}</td>
+      <td style="color:${s.terminated?'var(--red)':'var(--text3)'};">${s.terminated?'⛔ YES':'—'}</td>
+      <td style="font-size:11px;color:var(--text3);">${formatDate(s.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── CODE REVIEW ────────────────────────────────────────────
+let crCurrentId = null;
+
+async function renderCodeReview() {
+  let list = await DB.getAdminSubmissions();
+  const rf = document.getElementById('cr-filter-round')?.value;
+  const sf = document.getElementById('cr-filter-status')?.value;
+  if (rf) list = list.filter(s => String(s.round) === rf);
+  if (sf === 'pending')  list = list.filter(s => !s.admin_reviewed);
+  if (sf === 'reviewed') list = list.filter(s =>  s.admin_reviewed);
+
+  const pending = list.filter(s => !s.admin_reviewed).length;
+  const badge = document.getElementById('sb-review-count');
+  badge.textContent = pending;
+  badge.style.display = pending > 0 ? 'inline-block' : 'none';
+
+  const tbody = document.getElementById('cr-body');
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:40px;">No submissions found</td></tr>`; return; }
+
+  const grouped = new Map();
+  list.forEach(s => {
+    const k = s.participant_name || 'Unknown';
+    const cur = grouped.get(k) || { user: k, items: [] };
+    cur.items.push(s);
+    grouped.set(k, cur);
+  });
+
+  const users = Array.from(grouped.values()).sort((a,b) => {
+    const ap = a.items.filter(x => !x.admin_reviewed).length;
+    const bp = b.items.filter(x => !x.admin_reviewed).length;
+    if (bp !== ap) return bp - ap;
+    return String(a.user).localeCompare(String(b.user));
+  });
+
+  tbody.innerHTML = users.map(g => {
+    const items = g.items;
+    const total = items.length;
+    const pass = items.filter(s => s.result === 'Pass').length;
+    const pending = items.filter(s => !s.admin_reviewed).length;
+    const rounds = Array.from(new Set(items.map(s => String(s.round)))).sort();
+    const last = items.reduce((m, s) => {
+      const t = new Date(s.submitted_at || 0).getTime();
+      return !m || t > m.t ? { t, s } : m;
+    }, null)?.s;
+    const pct = total ? Math.round((pass / total) * 100) : 0;
+
+    const roundBadges = rounds.map(r => `<span class="round-tag round-${r}">R${r}</span>`).join(' ');
+    return `<tr>
+      <td style="font-weight:800;color:var(--white);">
+        <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="openPDModal('${escapeHtml(g.user)}')">${escapeHtml(g.user)}</button>
+      </td>
+      <td>${roundBadges || '<span class="badge badge-dim">—</span>'}</td>
+      <td style="font-family:var(--font-display);font-weight:800;color:var(--neon);">${pct}%</td>
+      <td style="font-family:var(--font-mono);">${pass}/${total}</td>
+      <td>${pending ? `<span class="badge badge-gold">${pending} Pending</span>` : `<span class="badge badge-neon">All Reviewed</span>`}</td>
+      <td style="font-size:11px;color:var(--text3);">${last ? formatDate(last.submitted_at) : '—'}</td>
+      <td>
+        <button class="btn btn-neon btn-sm" onclick="openPDModal('${escapeHtml(g.user)}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          View
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function openCRModal(id) {
+  const list = await DB.getAdminSubmissions();
+  const s = list.find(x => x.id === id);
+  if (!s) return;
+  crCurrentId = id;
+  document.getElementById('cr-m-title').textContent = `Review: ${s.problem_title||'Submission'}`;
+  document.getElementById('cr-m-sub').textContent = `${s.participant_name} · ${s.language} · Round ${s.round} · ${formatDate(s.submitted_at)}`;
+  document.getElementById('cr-m-code').textContent = s.submitted_code || '(no code)';
+  document.getElementById('cr-m-expected').textContent = s.expected_output || '(none)';
+  document.getElementById('cr-m-actual').textContent   = s.actual_output   || '(none)';
+  document.getElementById('cr-m-score').value   = s.admin_score   ?? '';
+  document.getElementById('cr-m-comment').value = s.admin_comment ?? '';
+  document.getElementById('cr-modal').classList.remove('hidden');
+}
+function closeCRModal() { document.getElementById('cr-modal').classList.add('hidden'); crCurrentId = null; }
+
+async function saveReview() {
+  if (!crCurrentId) return;
+  const score   = document.getElementById('cr-m-score').value;
+  const comment = document.getElementById('cr-m-comment').value.trim();
+  showLoading('Saving review…');
+  const reviewed = await DB.reviewAdminSubmission(crCurrentId, score !== '' ? parseInt(score) : null, comment);
+  if (reviewed) {
+    const synced = await DB.applyReviewToLatestSubmission(
+      reviewed.participant_name,
+      reviewed.problem_id,
+      reviewed.round,
+      reviewed.admin_score ?? null,
+      reviewed.admin_comment ?? ''
+    );
+    if (!synced) Toast.show('Saved, but could not sync review to participant history. Check console.', 'warn');
+  }
+  hideLoading();
+  Toast.show('Review saved!', 'success');
+  closeCRModal();
+  await renderCodeReview();
+}
+
+// DB live status
+(async () => {
+  const dot = document.getElementById('db-live-dot');
+  const msg = document.getElementById('db-live-msg');
+  try {
+    await DB.getRoundState();
+    dot.style.background = 'var(--neon)';
+    dot.style.boxShadow  = '0 0 6px var(--neon)';
+    msg.style.color = 'var(--neon)';
+    msg.textContent = 'DB connected';
+  } catch(e) {
+    dot.style.background = 'var(--red)';
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'DB offline';
+  }
+})();
+
+// Init
+nav('dashboard');
+</script>
+</body>
+</html>

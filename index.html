@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DebugArena — Login</title>
+<link rel="stylesheet" href="style.css">
+<!-- Supabase CDN — required before app.js -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="login-page">
+<div class="bg-mesh"></div>
+<div class="scanlines"></div>
+
+<!-- Loading Splash Screen -->
+<div id="splash-screen" class="splash-screen">
+  <div class="splash-logo">
+    <div class="splash-brand-icon-wrap">
+      <div class="splash-brand-square bs1"></div><div class="splash-brand-square bs2"></div>
+      <div class="splash-brand-square bs3"></div><div class="splash-brand-square bs4"></div>
+    </div>
+    <div class="splash-brand-name">Pat<span class="accent">chit</span></div>
+  </div>
+</div>
+
+<div class="login-left">
+  <div class="brand">
+    <div class="brand-icon-wrap">
+      <div class="brand-square bs1"></div><div class="brand-square bs2"></div>
+      <div class="brand-square bs3"></div><div class="brand-square bs4"></div>
+    </div>
+    <div class="brand-name">Pat<span class="accent">chit</span></div>
+    <div class="brand-tagline">Where Every Bug is a Challenge and Every Fix is a Win.</div>
+  </div>
+
+  <div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;">Competition Format</div>
+      <div class="rounds-showcase">
+        <div class="round-pill">
+          <div class="round-num">ROUND 1</div>
+          <div class="round-info"><h4>Open Qualification</h4><p>All participants — choose C or Python</p></div>
+        </div>
+        <div class="round-pill">
+          <div class="round-num r2">ROUND 2</div>
+          <div class="round-info"><h4>Elite Finals</h4><p>Admin-selected participants only</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal-widget">
+      <div class="term-hdr">
+        <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
+        <span class="term-fname">challenge_01.c — Round 1</span>
+      </div>
+      <div class="term-body">
+        <div class="tl"><span class="ln-num">01</span><span><span class="kw">int</span> main() {</span></div>
+        <div class="tl"><span class="ln-num">02</span><span>&nbsp;&nbsp;<span class="kw">int</span> arr[5] = {1,2,3};</span></div>
+        <div class="tl bug"><span class="ln-num">03</span><span>&nbsp;&nbsp;printf(<span class="str">"%d"</span>, arr[<span class="err">5</span>]);</span></div>
+        <div class="tl"><span class="ln-num">04</span><span>&nbsp;&nbsp;<span class="kw">return</span> 0;</span></div>
+        <div class="tl"><span class="ln-num">05</span><span>}</span></div>
+        <div class="tl out"><span class="prompt-sym">❯</span>&nbsp;<span class="err-out">Segmentation fault (core dumped)</span></div>
+        <span class="tcursor">▌</span>
+      </div>
+    </div>
+
+    <!-- DB Status Indicator -->
+    <div id="db-status" style="margin-top:16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text3);">
+      <span id="db-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0;"></span>
+      <span id="db-msg">Connecting to Supabase…</span>
+    </div>
+  </div>
+</div>
+
+<div class="login-right">
+  <div class="login-card">
+    <div class="login-title">ACCESS TERMINAL</div>
+    <div class="login-sub">Authenticate to enter the arena</div>
+
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="setRole('participant')" id="tab-p">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Participant
+      </button>
+      <button class="role-tab" onclick="setRole('admin')" id="tab-a">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Admin
+      </button>
+    </div>
+
+    <div class="fgroup">
+      <label class="flabel">Username</label>
+      <div class="finput-wrap">
+        <svg class="ficon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <input class="finput" type="text" id="uname" placeholder="Enter username" autocomplete="off">
+      </div>
+    </div>
+    <div class="fgroup">
+      <label class="flabel">Password</label>
+      <div class="finput-wrap">
+        <svg class="ficon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input class="finput" type="password" id="upass" placeholder="Enter password" autocomplete="off"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+    </div>
+
+    <div id="login-err" class="ferror hidden">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="err-text">Invalid credentials. Please try again.</span>
+    </div>
+
+    <button class="submit-btn" id="login-btn" onclick="doLogin()">
+      ENTER ARENA
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+
+    
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let selectedRole = 'participant';
+let dbReady = false;
+
+// ===== SPLASH SCREEN ANIMATION MANAGER =====
+(function() {
+  const splashScreen = document.getElementById('splash-screen');
+  if (splashScreen) {
+    // Ensure splash screen is hidden after animation completes
+    setTimeout(() => {
+      splashScreen.style.display = 'none';
+    }, 4700); // 4.2s animation + 0.8s fade + buffer
+  }
+})();
+
+function setRole(r) {
+  selectedRole = r;
+  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(r === 'participant' ? 'tab-p' : 'tab-a').classList.add('active');
+}
+
+function showErr(msg) {
+  document.getElementById('err-text').textContent = msg;
+  const el = document.getElementById('login-err');
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+function setBtnState(loading) {
+  const btn = document.getElementById('login-btn');
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin 0.7s linear infinite;"></span> Authenticating…`
+    : `ENTER ARENA <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`;
+}
+
+async function doLogin() {
+  const u = document.getElementById('uname').value.trim();
+  const p = document.getElementById('upass').value.trim();
+
+  if (!u) { showErr('Please enter a username.'); return; }
+  if (!p) { showErr('Please enter a password.');  return; }
+
+  setBtnState(true);
+
+  // ── ADMIN ──
+  if (selectedRole === 'admin') {
+    if (u === 'admin' && p === 'admin123') {
+      sessionStorage.setItem('da_role', 'admin');
+      sessionStorage.setItem('da_user', 'admin');
+      window.location.href = 'admin.html';
+    } else {
+      showErr('Invalid admin credentials.');
+      setBtnState(false);
+    }
+    return;
+  }
+
+  // ── PARTICIPANT ──
+  if (p !== 'debug123') {
+    showErr('Wrong password. Participants use: debug123');
+    setBtnState(false);
+    return;
+  }
+  if (!/^[a-zA-Z0-9_\- ]{2,30}$/.test(u)) {
+    showErr('Username: 2–30 chars, letters/numbers only.');
+    setBtnState(false);
+    return;
+  }
+
+  try {
+    const participant = await DB.getParticipant(u);
+    if (!participant) {
+      showErr('User not registered. Please contact admin.');
+      setBtnState(false);
+      return;
+    }
+    sessionStorage.setItem('da_role', 'participant');
+    sessionStorage.setItem('da_user', u);
+    window.location.href = 'participant.html';
+  } catch (e) {
+    showErr('DB Error: ' + e.message);
+    setBtnState(false);
+  }
+}
+
+// Check Supabase connection on load
+(async () => {
+  const dot = document.getElementById('db-dot');
+  const msg = document.getElementById('db-msg');
+  try {
+    await DB.getRoundState();
+    dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:var(--neon);box-shadow:0 0 8px var(--neon);display:inline-block;flex-shrink:0;';
+    msg.style.color = 'var(--neon)';
+    msg.textContent = '● Supabase connected';
+    dbReady = true;
+  } catch (e) {
+    dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0;';
+    msg.style.color = 'var(--red)';
+    msg.textContent = '✗ DB connection failed — check SUPABASE_KEY in app.js';
+  }
+})();
+</script>
+</body>
+</html>

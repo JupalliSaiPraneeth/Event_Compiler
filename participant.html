@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Participant — DebugArena</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="dash-page">
+<div class="bg-mesh"></div>
+
+<header class="topbar">
+  <div class="tb-brand">
+    <div class="tb-squares"><div class="tbs a"></div><div class="tbs b"></div><div class="tbs c"></div><div class="tbs d"></div></div>
+    <div class="tb-name">Debug<span>Arena</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div id="round-indicator" style="font-family:var(--font-mono);font-size:11px;color:var(--text3);"></div>
+    <div class="user-pill">
+      <div class="user-av" id="p-av">U</div>
+      <div class="user-deets"><div class="uname" id="p-name">Participant</div><div class="urole">Participant</div></div>
+    </div>
+    <button class="logout-btn" onclick="Auth.logout()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Logout
+    </button>
+  </div>
+</header>
+
+<div class="dash-body">
+  <aside class="sidebar">
+    <div class="sb-label">My Progress</div>
+    <button class="sb-btn active" onclick="showView('home')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+    </button>
+    <button class="sb-btn" onclick="showView('r1')">
+      <span class="round-tag round-1" style="font-size:9px;">R1</span>Round 1
+    </button>
+    <button class="sb-btn" id="sb-r2" onclick="showView('r2')" style="opacity:0.4;pointer-events:none;">
+      <span class="round-tag round-2" style="font-size:9px;">R2</span>Round 2
+    </button>
+    <div class="sb-label">History</div>
+    <button class="sb-btn" onclick="showView('history')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>My Submissions
+    </button>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- HOME / DASHBOARD -->
+    <section id="view-home">
+      <div class="pg-header"><h1 id="home-greeting">WELCOME!</h1><p>Select a round to start debugging</p></div>
+      <div id="home-stats" class="stats-grid" style="margin-bottom:24px;"></div>
+      <div id="home-round-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"></div>
+    </section>
+
+    <!-- ROUND 1 -->
+    <section id="view-r1" class="hidden">
+      <div class="pg-header">
+        <h1>ROUND 1 — QUALIFICATION</h1>
+        <p id="r1-desc">Loading…</p>
+      </div>
+      <div id="r1-closed" class="hidden" style="text-align:center;padding:60px 20px;color:var(--text3);">
+        <div style="margin-bottom:16px;display:flex;justify-content:center;">
+          <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:8px;">Round 1 is Closed</div>
+        <div style="font-size:13px;">The admin hasn't opened Round 1 yet. Check back soon!</div>
+      </div>
+      <div id="r1-content">
+        <div style="margin-bottom:20px;display:flex;gap:8px;">
+          <button class="btn btn-sm" id="r1-btn-c" onclick="filterR1('C')" style="background:rgba(0,170,255,0.1);border:1px solid rgba(0,170,255,0.3);color:var(--blue);">C Language</button>
+          <button class="btn btn-sm" id="r1-btn-py" onclick="filterR1('Python')" style="background:rgba(255,204,0,0.1);border:1px solid rgba(255,204,0,0.3);color:var(--yellow);">Python</button>
+          <button class="btn btn-ghost btn-sm" id="r1-btn-all" onclick="filterR1('all')">All</button>
+        </div>
+        <div class="prob-grid" id="r1-probs"></div>
+      </div>
+    </section>
+
+    <!-- ROUND 2 -->
+    <section id="view-r2" class="hidden">
+      <div class="pg-header"><h1>ROUND 2 — ELITE FINALS</h1><p id="r2-desc">Loading…</p></div>
+      <div id="r2-not-eligible" class="hidden" style="text-align:center;padding:60px 20px;color:var(--text3);">
+        <div style="margin-bottom:16px;display:flex;justify-content:center;">
+          <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M9 13l-2 9 5-3 5 3-2-9"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:8px;">Round 2 — By Invitation</div>
+        <div style="font-size:13px;">You need to be selected by the admin to access Round 2.</div>
+      </div>
+      <div id="r2-closed" class="hidden" style="text-align:center;padding:60px 20px;color:var(--text3);">
+        <div style="margin-bottom:16px;display:flex;justify-content:center;">
+          <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:8px;">Round 2 is Closed</div>
+        <div style="font-size:13px;">The admin hasn't opened Round 2 yet.</div>
+      </div>
+      <div class="prob-grid" id="r2-probs"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="hidden">
+      <div class="pg-header"><h1>MY SUBMISSIONS</h1><p>Your full submission history</p></div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Submission History</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select class="form-select btn-sm" id="hist-round-filter" style="width:auto;" onchange="loadHistory()">
+              <option value="">All Rounds</option>
+              <option value="1">Round 1</option>
+              <option value="2">Round 2</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadHistory()">↻ Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Problem</th><th>Round</th><th>Lang</th><th>Result</th><th>Review</th><th>Score</th><th>Comment</th><th>Time</th><th>Date</th></tr></thead><tbody id="hist-body"></tbody></table></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+Auth.check('participant');
+const ME = Auth.user();
+document.getElementById('p-name').textContent = ME;
+document.getElementById('p-av').textContent = ME[0].toUpperCase();
+
+let _rs = null, _probs = [], _part = null, _mySubs = [], _r1filter = 'all';
+
+const VIEWS = ['home', 'r1', 'r2', 'history'];
+async function showView(name) {
+  VIEWS.forEach(v => document.getElementById('view-' + v).classList.add('hidden'));
+  document.getElementById('view-' + name).classList.remove('hidden');
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+  const idx = ['home','r1','r2','history'].indexOf(name);
+  if (idx >= 0) document.querySelectorAll('.sb-btn')[idx]?.classList.add('active');
+  showLoading('Loading…');
+  try {
+    if (name === 'home')    await loadHome();
+    if (name === 'r1')      await loadRound1();
+    if (name === 'r2')      await loadRound2();
+    if (name === 'history') await loadHistory();
+  } finally { hideLoading(); }
+}
+
+async function loadData() {
+  [_rs, _probs, _part, _mySubs] = await Promise.all([
+    DB.getRoundState(), DB.getProblems(), DB.getParticipant(ME), DB.getMySubmissions(ME)
+  ]);
+}
+
+async function loadHome() {
+  await loadData();
+
+  document.getElementById('home-greeting').textContent = `WELCOME, ${ME.toUpperCase()}!`;
+  const mySubs = await DB.getMySubmissions(ME);
+  const passed = mySubs.filter(s => s.result === 'Pass').length;
+
+  const r1Attempted = mySubs.some(s => String(s.round) === '1');
+  const r2Attempted = mySubs.some(s => String(s.round) === '2');
+
+  const ICONS = {
+    subs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg>`,
+    solved: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
+    active: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`,
+  };
+  document.getElementById('home-stats').innerHTML = [
+    { icon: ICONS.subs,   val: mySubs.length, lbl:'Total Submissions' },
+    { icon: ICONS.solved, val: passed,         lbl:'Solved' },
+    { icon: ICONS.active, val: _probs.filter(p=>p.status==='active').length, lbl:'Active Problems' },
+  ].map(s => `<div class="stat-card"><div class="stat-icon">${s.icon}</div><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+
+  document.getElementById('home-round-cards').innerHTML = [
+    {
+      round: 1, cls: 'round-1', open: _rs.round1Open, limit: _rs.round1TimeLimit,
+      desc: 'Open to all participants. Choose C or Python.',
+      action: r1Attempted ? '' : `onclick="showView('r1')"`,
+      btnCls: r1Attempted ? 'btn-ghost' : 'btn-neon',
+      btnTxt: r1Attempted ? 'Submitted' : 'Go to Round 1',
+    },
+    {
+      round: 2, cls: 'round-2', open: _rs.round2Open, limit: _rs.round2TimeLimit,
+      desc: _part?.round2Eligible ? 'You are eligible! Admin has selected you.' : 'Admin-selected participants only.',
+      action: (_part?.round2Eligible && !r2Attempted) ? `onclick="showView('r2')"` : '',
+      btnCls: (_part?.round2Eligible && !r2Attempted) ? 'btn-gold' : 'btn-ghost',
+      btnTxt: !_part?.round2Eligible ? 'Not Eligible' : r2Attempted ? 'Submitted' : 'Go to Round 2',
+    },
+  ].map(r => `<div class="card" style="border-color:${r.open?'var(--neon)':'var(--bg3)'};">
+    <div style="padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span class="round-tag ${r.cls}">ROUND ${r.round}</span>
+        <span class="badge ${r.open?'badge-neon':'badge-dim'}">${r.open?'OPEN':'CLOSED'}</span>
+      </div>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px;">${r.desc}</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">⏱ ${r.limit} min default</span>
+        <button class="btn btn-sm ${r.btnCls}" ${r.action} ${r.action ? '' : 'disabled'}>${r.btnTxt}</button>
+      </div>
+    </div>
+  </div>`).join('');
+
+  // Update R2 sidebar button
+  const r2btn = document.getElementById('sb-r2');
+  if (_part?.round2Eligible) {
+    r2btn.style.opacity = '1'; r2btn.style.pointerEvents = 'auto';
+  } else {
+    r2btn.style.opacity = '0.4'; r2btn.style.pointerEvents = 'none';
+  }
+
+  // Round indicator
+  document.getElementById('round-indicator').textContent =
+    `R1:${_rs.round1Open?'OPEN':'CLOSED'} · R2:${_rs.round2Open?'OPEN':'CLOSED'}`;
+}
+
+async function loadRound1() {
+  await loadData();
+  const r1open = _rs.round1Open;
+  const attempted = (_mySubs || []).some(s => String(s.round) === '1');
+  document.getElementById('r1-closed').classList.toggle('hidden', r1open);
+  document.getElementById('r1-content').classList.toggle('hidden', !r1open);
+  if (r1open) {
+    const probs = _probs.filter(p => p.status === 'active' && p.round === 1);
+    document.getElementById('r1-desc').textContent = `${probs.length} active challenges · ${_rs.round1TimeLimit} min default · Choose your language`;
+    renderProbCards('r1-probs', probs, _r1filter, attempted);
+  } else {
+    document.getElementById('r1-desc').textContent = 'Round 1 is currently closed.';
+  }
+}
+
+function filterR1(lang) {
+  _r1filter = lang;
+  document.querySelectorAll('#r1-btn-c,#r1-btn-py,#r1-btn-all').forEach(b => b.style.fontWeight = 'normal');
+  const el = lang === 'C' ? 'r1-btn-c' : lang === 'Python' ? 'r1-btn-py' : 'r1-btn-all';
+  document.getElementById(el).style.fontWeight = '700';
+  const probs = _probs.filter(p => p.status === 'active' && p.round === 1);
+  const attempted = (_mySubs || []).some(s => String(s.round) === '1');
+  renderProbCards('r1-probs', probs, lang, attempted);
+}
+
+async function loadRound2() {
+  await loadData();
+  const eligible = _part?.round2Eligible;
+  const r2open = _rs.round2Open;
+  const attempted = (_mySubs || []).some(s => String(s.round) === '2');
+  document.getElementById('r2-not-eligible').classList.toggle('hidden', !!eligible);
+  document.getElementById('r2-closed').classList.toggle('hidden', !eligible || r2open);
+  document.getElementById('r2-probs').classList.toggle('hidden', !eligible || !r2open);
+  if (eligible && r2open) {
+    document.getElementById('r2-desc').textContent = `Elite Finals · ${_rs.round2TimeLimit} min default`;
+    const probs = _probs.filter(p => p.status === 'active' && p.round === 2);
+    renderProbCards('r2-probs', probs, 'all', attempted);
+  }
+}
+
+function renderProbCards(containerId, probs, filter, attempted) {
+  const filtered = filter === 'all' ? probs : probs.filter(p => p.language === filter);
+  const el = document.getElementById(containerId);
+  if (!filtered.length) {
+    el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">
+      <div style="font-size:40px;margin-bottom:12px;">📭</div>
+      <div style="font-size:14px;">${filter !== 'all' ? 'No '+filter+' problems yet.' : 'No active problems yet. Check back soon!'}</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = filtered.map((p, i) => `
+    <div class="prob-card" style="animation-delay:${i*0.05}s;${attempted?'opacity:0.65;pointer-events:none;':''}" onclick="${attempted?'':`startSession('${p.id}','${p.round}','${p.language}')`}">
+      <div class="prob-card-top">
+        <span class="lang-tag ${p.language==='C'?'lang-c':'lang-py'}">${p.language}</span>
+        <span class="badge badge-dim">${p.difficulty||'Medium'}</span>
+      </div>
+      <div class="prob-card-title">${escapeHtml(p.title)}</div>
+      <div class="prob-card-code">${escapeHtml(truncate(p.buggyCode, 120))}</div>
+      <div class="prob-card-foot">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">
+          ⏱ ${p.timeLimit ? p.timeLimit+' min' : 'Round default'}
+        </span>
+        <button class="btn btn-neon btn-sm" ${attempted?'disabled':''}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          ${attempted ? 'Submitted' : 'Debug'}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadHistory() {
+  showLoading('Loading history…');
+  const [mySubs, probs, myReviews] = await Promise.all([DB.getMySubmissions(ME), DB.getProblems(), DB.getMyAdminReviews(ME)]);
+  hideLoading();
+  const tbody = document.getElementById('hist-body');
+  const rf = document.getElementById('hist-round-filter')?.value || '';
+  const subs = rf ? (mySubs || []).filter(s => String(s.round) === String(rf)) : (mySubs || []);
+  if (!subs.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:40px;">No submissions yet</td></tr>`;
+    return;
+  }
+  const reviewIndex = new Map();
+  (myReviews || []).forEach(r => {
+    if (!r) return;
+    const key = `${r.round}|${r.problem_id || ''}|${r.time_taken || ''}`;
+    if (!reviewIndex.has(key)) reviewIndex.set(key, r);
+  });
+  tbody.innerHTML = subs.map(s => {
+    const prob = probs.find(p => p.id === s.problemId);
+    const lang = prob?.language || '?';
+    const rc = s.result==='Pass'?'badge-neon':s.result==='Time Up'?'badge-gold':'badge-red';
+    const rkey = `${s.round}|${s.problemId || ''}|${s.timeTaken || ''}`;
+    const r = reviewIndex.get(rkey);
+    const reviewed = !!(r?.admin_reviewed || s.adminReviewed);
+    const score = (r?.admin_score ?? s.adminScore);
+    const comment = (r?.admin_comment ?? s.adminComment);
+    return `<tr>
+      <td style="font-weight:700;color:var(--white);max-width:200px;">${escapeHtml(prob?.title||'Unknown')}</td>
+      <td><span class="round-tag round-${s.round||1}">R${s.round||1}</span></td>
+      <td><span class="lang-tag ${lang==='C'?'lang-c':'lang-py'}">${lang}</span></td>
+      <td><span class="badge ${rc}">${s.result}</span></td>
+      <td>${reviewed ? '<span class="badge badge-neon">Reviewed</span>' : '<span class="badge badge-dim">Pending</span>'}</td>
+      <td style="font-family:var(--font-mono);">${reviewed && score!=null ? score : '—'}</td>
+      <td style="max-width:240px;color:var(--text2);">${reviewed && comment ? escapeHtml(comment) : '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:12px;">${s.timeTaken||'—'}</td>
+      <td style="font-size:11px;color:var(--text3);">${formatDate(s.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function startSession(problemId, round, lang) {
+  showLoading('Starting session…');
+  try {
+    const r = parseInt(round || '1');
+    const attempted = (_mySubs || []).some(s => String(s.round) === String(r));
+    if (attempted) { Toast.show('You already submitted for this round.', 'warn'); return; }
+    const l = (lang || '').trim();
+    if (r === 1 && l) await DB.updateParticipant(ME, { round1Lang: l, round1Status: 'in_progress' });
+    if (r === 2 && l) await DB.updateParticipant(ME, { round2Lang: l, round2Status: 'in_progress' });
+
+    sessionStorage.setItem('da_problem_id', problemId);
+    sessionStorage.setItem('da_round', String(r));
+
+    sessionStorage.setItem('current_problem', problemId);
+    sessionStorage.setItem('current_round', String(r));
+
+    window.location.href = 'session.html';
+  } finally {
+    hideLoading();
+  }
+}
+
+// Init
+showView('home');
+</script>
+</body>
+</html>
