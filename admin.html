@@ -145,7 +145,7 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Username</th><th>R1 Lang</th><th>R1 Status</th><th>R1 Solved</th><th>R2 Eligible</th><th>R2 Status</th><th>R2 Solved</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="parts-body"></tbody></table></div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th style="font-size:12px;font-weight:800;color:var(--text2);">Username</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R1 Lang</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R1 Status</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R1 Solved</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R2 Eligible</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R2 Status</th><th style="font-size:12px;font-weight:800;color:var(--text2);">R2 Solved</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Joined</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Actions</th></tr></thead><tbody id="parts-body"></tbody></table></div>
     </div>
   </section>
 
@@ -232,7 +232,7 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>#</th><th>Round</th><th>Lang</th><th>Title</th><th>Difficulty</th><th>Time Limit</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="all-probs-body"></tbody></table></div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th style="font-size:12px;font-weight:800;color:var(--text2);">#</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Round</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Lang</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Title</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Difficulty</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Time Limit</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Status</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Created</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Actions</th></tr></thead><tbody id="all-probs-body"></tbody></table></div>
     </div>
   </section>
 
@@ -252,7 +252,7 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Participant</th><th>Round</th><th>Lang</th><th>Problem</th><th>Result</th><th>Time</th><th>Terminated</th><th>Submitted</th></tr></thead><tbody id="subs-body"></tbody></table></div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th style="font-size:12px;font-weight:800;color:var(--text2);">Participant</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Round</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Lang</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Problem</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Result</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Time</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Terminated</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Submitted</th></tr></thead><tbody id="subs-body"></tbody></table></div>
     </div>
   </section>
 
@@ -266,6 +266,14 @@
           <select class="form-select btn-sm" id="cr-filter-round" style="width:auto;" onchange="renderCodeReview()">
             <option value="">All Rounds</option><option value="1">Round 1</option><option value="2">Round 2</option>
           </select>
+          <select class="form-select btn-sm" id="cr-filter-solved" style="width:auto;" onchange="renderCodeReview()">
+            <option value="0">Solved ≥ 0</option>
+            <option value="1">Solved ≥ 1</option>
+            <option value="2">Solved ≥ 2</option>
+            <option value="3">Solved ≥ 3</option>
+            <option value="4">Solved ≥ 4</option>
+            <option value="5">Solved ≥ 5</option>
+          </select>
           <select class="form-select btn-sm" id="cr-filter-status" style="width:auto;" onchange="renderCodeReview()">
             <option value="">All Status</option><option value="pending">Pending</option><option value="reviewed">Reviewed</option>
           </select>
@@ -275,7 +283,7 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>Participant</th><th>Rounds</th><th>Pass %</th><th>Submissions</th><th>Pending Reviews</th><th>Last Submitted</th><th>Actions</th></tr></thead><tbody id="cr-body"></tbody></table></div>
+      <div style="overflow-x:auto;"><table class="data-table"><thead><tr><th style="font-size:12px;font-weight:800;color:var(--text2);">Participant</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Rounds</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Pass %</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Submissions</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Pending Reviews</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Last Submitted</th><th style="font-size:12px;font-weight:800;color:var(--text2);">Actions</th></tr></thead><tbody id="cr-body"></tbody></table></div>
     </div>
   </section>
 
@@ -313,6 +321,7 @@
               <th>Review</th>
               <th>Score</th>
               <th>Comment</th>
+              <th>Time Taken</th>
               <th>Submitted</th>
               <th>Action</th>
             </tr>
@@ -487,7 +496,7 @@ async function renderParticipantDrilldown(forceReload) {
       p.status === 'active' && String(p.round) === String(round) && (!effLang || String(p.language) === String(effLang))
     );
     if (!roundProblems.length) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:40px;">No problems configured for this round</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:40px;">No problems configured for this round</td></tr>`;
       return;
     }
 
@@ -511,15 +520,42 @@ async function renderParticipantDrilldown(forceReload) {
         <td>${s ? (reviewed?'<span class="badge badge-neon">✓ Reviewed</span>':'<span class="badge badge-gold">⏳ Pending</span>') : '<span class="badge badge-dim">—</span>'}</td>
         <td style="font-family:var(--font-display);font-weight:800;color:var(--neon);">${s && reviewed && score!=null ? score : '—'}</td>
         <td style="max-width:280px;color:var(--text2);">${s && reviewed && comment ? escapeHtml(comment) : '—'}</td>
-        <td style="font-size:11px;color:var(--text3);">${s?.submitted_at ? formatDate(s.submitted_at) : '—'}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;">${s?.time_taken || '—'}</td>
         <td>
-          <button class="btn btn-neon btn-sm" ${s ? `onclick=\"openCRModal('${s.id}')\"` : 'disabled'}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            Review
-          </button>
+          ${s?.submitted_at
+            ? `<div style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--text2);">${escapeHtml(formatDate(s.submitted_at))}</div>`
+            : '<div style="font-size:11px;color:var(--text3);">—</div>'}
+        </td>
+        <td>
+          <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
+            <button class="btn btn-neon btn-sm" ${s ? `onclick=\"openCRModal('${s.id}')\"` : 'disabled'}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Review
+            </button>
+            <button class="btn btn-red btn-sm" style="font-size:12px;font-weight:800;padding:8px 14px;" ${s ? `onclick=\"deletePDSubmission('${escapeHtml(p.id)}','${escapeHtml(round)}')\"` : 'disabled'}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              Delete
+            </button>
+          </div>
         </td>
       </tr>`;
     }).join('');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deletePDSubmission(problemId, round) {
+  if (!pdUser) return;
+  if (!confirm(`Delete ${pdUser}'s submission(s) for this problem?`)) return;
+  showLoading('Deleting…');
+  try {
+    const ok1 = await DB.deleteParticipantSubmissions(pdUser, parseInt(round), problemId);
+    const ok2 = await DB.deleteParticipantAdminSubmissions(pdUser, parseInt(round), problemId);
+    if (!ok1 || !ok2) Toast.show('Delete failed. Check console.', 'error');
+    else Toast.show('Submission deleted', 'success');
+    await renderParticipantDrilldown(true);
+    await renderCodeReview();
   } finally {
     hideLoading();
   }
@@ -654,7 +690,7 @@ async function renderParticipants() {
       </td>
       <td><span class="badge badge-dim">${p.round2Status}</span></td>
       <td style="font-family:var(--font-mono);color:var(--gold);">${p.round2Completed}</td>
-      <td style="font-size:11px;color:var(--text3);">${formatDate(p.joinedAt)}</td>
+      <td>${p.joinedAt ? `<div style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--text2);">${escapeHtml(formatDate(p.joinedAt))}</div>` : '<div style="font-size:11px;color:var(--text3);">—</div>'}</td>
       <td>
         <div class="acts">
           <button class="act-btn del" onclick="removeParticipant('${p.username}')" title="Remove">
@@ -703,7 +739,7 @@ async function renderAllProblems() {
     <td><span class="badge ${diffCls[p.difficulty]||'badge-dim'}">${p.difficulty||'Medium'}</span></td>
     <td style="font-family:var(--font-mono);color:var(--yellow);">${p.timeLimit ? p.timeLimit+'m' : '<span style="color:var(--text3)">Round default</span>'}</td>
     <td><span class="badge ${p.status==='active'?'badge-neon':'badge-dim'}">${p.status}</span></td>
-    <td style="font-size:11px;color:var(--text3);">${formatDate(p.createdAt)}</td>
+    <td>${p.createdAt ? `<div style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--text2);">${escapeHtml(formatDate(p.createdAt))}</div>` : '<div style="font-size:11px;color:var(--text3);">—</div>'}</td>
     <td>
       <div class="acts">
         <button class="act-btn" onclick="viewProblem('${p.id}')" title="View">
@@ -787,7 +823,7 @@ async function renderSubmissions() {
       <td><span class="badge ${rc}">${s.result}</span></td>
       <td style="font-family:var(--font-mono);font-size:12px;">${s.timeTaken||'—'}</td>
       <td style="color:${s.terminated?'var(--red)':'var(--text3)'};">${s.terminated?'⛔ YES':'—'}</td>
-      <td style="font-size:11px;color:var(--text3);">${formatDate(s.createdAt)}</td>
+      <td>${s.createdAt ? `<div style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--text2);">${escapeHtml(formatDate(s.createdAt))}</div>` : '<div style="font-size:11px;color:var(--text3);">—</div>'}</td>
     </tr>`;
   }).join('');
 }
@@ -797,7 +833,9 @@ let crCurrentId = null;
 
 async function renderCodeReview() {
   let list = await DB.getAdminSubmissions();
+  const [probs, parts] = await Promise.all([DB.getProblems(), DB.getParticipants()]);
   const rf = document.getElementById('cr-filter-round')?.value;
+  const solvedMin = parseInt(document.getElementById('cr-filter-solved')?.value || '0') || 0;
   const sf = document.getElementById('cr-filter-status')?.value;
   if (rf) list = list.filter(s => String(s.round) === rf);
   if (sf === 'pending')  list = list.filter(s => !s.admin_reviewed);
@@ -826,12 +864,50 @@ async function renderCodeReview() {
     return String(a.user).localeCompare(String(b.user));
   });
 
-  tbody.innerHTML = users.map(g => {
+  const partIndex = new Map((parts || []).map(p => [String(p.username), p]));
+
+  const filteredUsers = users.filter(g => {
+    if (!solvedMin) return true;
+    const solved = new Set(
+      (g.items || [])
+        .filter(s => String(s.result) === 'Pass')
+        .map(s => String(s.problem_id || ''))
+        .filter(Boolean)
+    ).size;
+    return solved >= solvedMin;
+  });
+
+  tbody.innerHTML = filteredUsers.map(g => {
     const items = g.items;
+    const part = partIndex.get(String(g.user)) || null;
+    const roundSet = Array.from(new Set(items.map(s => String(s.round)))).sort();
+
+    const submittedPerRound = roundSet.reduce((m, r) => {
+      const rr = items.filter(s => String(s.round) === String(r));
+      const preferredLang = String(r) === '2' ? (part?.round2Lang || '') : (part?.round1Lang || '');
+      let eff = preferredLang;
+      if (!eff) {
+        const freq = rr.reduce((acc, s) => {
+          const l = (s.language || '').trim();
+          if (!l) return acc;
+          acc[l] = (acc[l] || 0) + 1;
+          return acc;
+        }, {});
+        eff = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || '';
+      }
+      const denom = (probs || []).filter(p => p.status === 'active' && String(p.round) === String(r) && eff && String(p.language) === String(eff)).length;
+      const numer = new Set(rr.filter(s => !eff || String(s.language) === String(eff)).map(s => String(s.problem_id || ''))).size;
+      m[String(r)] = { effLang: eff, numer, denom };
+      return m;
+    }, {});
+
+    const denomTotal = Object.values(submittedPerRound).reduce((a, x) => a + (x.denom || 0), 0);
+    const numerTotal = Object.values(submittedPerRound).reduce((a, x) => a + (x.numer || 0), 0);
+
     const total = items.length;
     const pass = items.filter(s => s.result === 'Pass').length;
     const pending = items.filter(s => !s.admin_reviewed).length;
-    const rounds = Array.from(new Set(items.map(s => String(s.round)))).sort();
+    const rounds = roundSet;
     const last = items.reduce((m, s) => {
       const t = new Date(s.submitted_at || 0).getTime();
       return !m || t > m.t ? { t, s } : m;
@@ -845,9 +921,9 @@ async function renderCodeReview() {
       </td>
       <td>${roundBadges || '<span class="badge badge-dim">—</span>'}</td>
       <td style="font-family:var(--font-display);font-weight:800;color:var(--neon);">${pct}%</td>
-      <td style="font-family:var(--font-mono);">${pass}/${total}</td>
+      <td style="font-family:var(--font-mono);">${numerTotal}/${denomTotal || '—'}</td>
       <td>${pending ? `<span class="badge badge-gold">${pending} Pending</span>` : `<span class="badge badge-neon">All Reviewed</span>`}</td>
-      <td style="font-size:11px;color:var(--text3);">${last ? formatDate(last.submitted_at) : '—'}</td>
+      <td>${last ? `<div style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--text2);">${escapeHtml(formatDate(last.submitted_at))}</div>` : '<div style="font-size:11px;color:var(--text3);">—</div>'}</td>
       <td>
         <button class="btn btn-neon btn-sm" onclick="openPDModal('${escapeHtml(g.user)}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -894,6 +970,9 @@ async function saveReview() {
   Toast.show('Review saved!', 'success');
   closeCRModal();
   await renderCodeReview();
+  if (pdUser && !document.getElementById('pd-modal').classList.contains('hidden')) {
+    await renderParticipantDrilldown(true);
+  }
 }
 
 // DB live status
