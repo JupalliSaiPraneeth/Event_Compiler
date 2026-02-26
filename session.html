@@ -361,6 +361,9 @@ html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
   </div>
 </div>
 
+<!-- Pyodide for Python execution -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+<!-- JSCPP loaded dynamically in JS with fallback CDNs -->
 <script>var require = { paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } };</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
 <script src="app.js"></script>
@@ -378,11 +381,764 @@ const ME    = Auth.user();
 const ROUND = parseInt(sessionStorage.getItem('da_round') || sessionStorage.getItem('current_round') || '1');
 const _START_PROBLEM_ID = sessionStorage.getItem('da_problem_id') || sessionStorage.getItem('current_problem') || null;
 
-// Judge0 Code Execution — replace with your RapidAPI key
-const JUDGE0_URL = 'https://judge0-ce.p.rapidapi.com/submissions';
-const JUDGE0_KEY = 'YOUR_RAPIDAPI_KEY'; // ← paste your key here
-const LANG_IDS   = { C: 50, Python: 71 };
 const LANG_MONO  = { C: 'c', Python: 'python' };
+
+// ── IN-BROWSER COMPILER ENGINE ────────────────────────────────
+let _pyodide = null;
+let _pyodideLoading = false;
+let _pyodideReady = false;
+
+async function _loadPyodide() {
+  if (_pyodideReady) return _pyodide;
+  if (_pyodideLoading) {
+    // Wait for it to finish loading
+    while (_pyodideLoading) await new Promise(r => setTimeout(r, 100));
+    return _pyodide;
+  }
+  _pyodideLoading = true;
+  try {
+    _pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' });
+    _pyodideReady = true;
+  } catch(e) {
+    console.error('Pyodide load error:', e);
+  } finally {
+    _pyodideLoading = false;
+  }
+  return _pyodide;
+}
+
+// Pre-load Pyodide in background when session starts
+function _prewarmPyodide() {
+  setTimeout(() => _loadPyodide().catch(() => {}), 500);
+}
+
+async function executeCode(language, sourceCode) {
+  if (language === 'Python') {
+    return await _executePython(sourceCode);
+  } else if (language === 'C') {
+    return await _executeC(sourceCode);
+  }
+  return { stdout: '', stderr: 'Unsupported language: ' + language };
+}
+
+async function _executePython(code) {
+  try {
+    const py = await _loadPyodide();
+    if (!py) return { stdout: '', stderr: 'Python runtime failed to load. Please refresh.' };
+
+    let stdout = '';
+    let stderr = '';
+
+    // Redirect stdout/stderr
+    py.setStdout({ batched: (s) => { stdout += s + '\n'; } });
+    py.setStderr({ batched: (s) => { stderr += s + '\n'; } });
+
+    try {
+      await py.runPythonAsync(code);
+    } catch (e) {
+      stderr = '__BUG_NOT_FIXED__';
+    }
+
+    // Trim trailing newline added by batched
+    stdout = stdout.replace(/\n$/, '');
+    stderr = stderr.replace(/\n$/, '');
+    return { stdout, stderr };
+  } catch(e) {
+    return { stdout: '', stderr: 'Python execution error: ' + e.message };
+  }
+}
+
+// ── C SYNTAX VALIDATOR ───────────────────────────────────────
+function _validateCSyntax(code) {
+  // 1. Check balanced braces/parens/brackets
+  let braces=0, parens=0, brackets=0;
+  let inStr=false, inChar=false, inLC=false, inBC=false;
+  for(let i=0;i<code.length;i++){
+    const c=code[i],n=code[i+1]||'';
+    if(inLC){if(c==='\n')inLC=false;continue;}
+    if(inBC){if(c==='*'&&n=='/'){inBC=false;i++;}continue;}
+    if(inStr){if(c==='\\')i++;else if(c==='"')inStr=false;continue;}
+    if(inChar){if(c==='\\')i++;else if(c==="'")inChar=false;continue;}
+    if(c==='/'&&n==='/')  {inLC=true;continue;}
+    if(c==='/'&&n==='*')  {inBC=true;continue;}
+    if(c==='"'){inStr=true;continue;}
+    if(c==="'"){inChar=true;continue;}
+    if(c==='{')braces++;
+    else if(c==='}'){braces--;if(braces<0)return 'Unmatched }';}
+    else if(c==='(')parens++;
+    else if(c===')'){parens--;if(parens<0)return 'Unmatched )';}
+    else if(c==='[')brackets++;
+    else if(c===']'){brackets--;if(brackets<0)return 'Unmatched ]';}
+  }
+  if(braces!==0)  return 'Unmatched {';
+  if(parens!==0)  return 'Unmatched (';
+  if(brackets!==0)return 'Unmatched [';
+
+  // 2. Extract all function bodies and validate line by line
+  let depth=0,bodyStart=-1;
+  inStr=false;inChar=false;inLC=false;inBC=false;
+  for(let i=0;i<code.length;i++){
+    const c=code[i],n=code[i+1]||'';
+    if(inLC){if(c==='\n')inLC=false;continue;}
+    if(inBC){if(c==='*'&&n=='/'){inBC=false;i++;}continue;}
+    if(inStr){if(c==='\\')i++;else if(c==='"')inStr=false;continue;}
+    if(inChar){if(c==='\\')i++;else if(c==="'")inChar=false;continue;}
+    if(c==='/'&&n==='/')  {inLC=true;continue;}
+    if(c==='/'&&n==='*')  {inBC=true;continue;}
+    if(c==='"'){inStr=true;continue;}
+    if(c==="'"){inChar=true;continue;}
+    if(c==='{'){depth++;if(depth===1)bodyStart=i+1;}
+    else if(c==='}'){
+      if(depth===1&&bodyStart>=0){
+        const err=_validateBody(code.slice(bodyStart,i));
+        if(err)return err;
+        bodyStart=-1;
+      }
+      depth--;
+    }
+  }
+  return null;
+}
+
+function _validateBody(body) {
+  // Strip string and char literals to avoid false positives inside them
+  const clean = body
+    .replace(/"(?:[^"\\]|\\.)*"/g, s => '"' + ' '.repeat(Math.max(0,s.length-2)) + '"')
+    .replace(/'(?:[^'\\]|\\.)*'/g, s => "'" + ' '.repeat(Math.max(0,s.length-2)) + "'");
+
+  // Recursively validate all { } blocks inside this body
+  let depth=0, blockStart=-1;
+  for(let i=0;i<clean.length;i++){
+    if(clean[i]==='{'){
+      depth++;
+      if(depth===1) blockStart=i+1;
+    } else if(clean[i]==='}'){
+      if(depth===1 && blockStart>=0){
+        // Validate the content of this nested block
+        const inner = body.slice(blockStart, i); // use original (not clean) for recursion
+        const err = _validateBody(inner);
+        if(err) return err;
+        blockStart=-1;
+      }
+      depth--;
+    }
+  }
+
+  // Now validate lines at THIS level (not inside any { })
+  // Build a version with all { } blocks removed (replaced by placeholder)
+  let flat = '';
+  depth=0;
+  for(let i=0;i<clean.length;i++){
+    if(clean[i]==='{'){depth++;flat+=' ';}
+    else if(clean[i]==='}'){depth--;flat+=' ';}
+    else if(depth===0){flat+=clean[i];}
+    // Skip content inside blocks (already validated recursively)
+  }
+
+  const lines = flat.split('\n').map(l=>l.trim()).filter(Boolean);
+
+  for(const line of lines){
+    if(line.endsWith(';'))  continue;
+    if(line.endsWith('{'))  continue;
+    if(line.endsWith('}'))  continue;
+    if(line.endsWith(','))  continue;
+    if(line.startsWith('//')) continue;
+    if(line.startsWith('#'))  continue;
+
+    // Control flow without block (e.g. if(...) or for(...;...;...) before next line's {)
+    if(/^(if|else\s+if|for|while)\s*\(.*\)\s*$/.test(line)) continue;
+    if(/^(else|do)\s*$/.test(line)) continue;
+    // Single-line control + statement (e.g. "if(x>0) return x;" or "else return 0;") - has ; at end checked above
+
+    const looksLikeStatement = (
+      /=/.test(line)              ||
+      /\w\s*\(/.test(line)        ||
+      /\+\+|--/.test(line)        ||
+      /^(int|char|float|double|long|short|unsigned|const)\s+\w/.test(line) ||
+      /^return\b/.test(line)
+    );
+    const isControlFlow = /^(if|else|for|while|do|switch)\b/.test(line);
+    const isFuncDef     = /^\w[\w\s\*]+\s+\w+\s*\([^)]*\)\s*$/.test(line);
+    const isLabel       = /^\w+\s*:$/.test(line);
+
+    if(looksLikeStatement && !isControlFlow && !isFuncDef && !isLabel){
+      return 'Missing semicolon near: ' + line.replace(/\s+/g,' ').slice(0,50);
+    }
+  }
+  return null;
+}
+
+function _findBraceEnd(s, start) {
+  let d=0,i=start,inStr=false,inChar=false;
+  while(i<s.length){
+    const c=s[i];
+    if(inStr){if(c==='\\')i++;else if(c==='"')inStr=false;i++;continue;}
+    if(inChar){if(c==='\\')i++;else if(c==="'")inChar=false;i++;continue;}
+    if(c==='"'){inStr=true;i++;continue;}
+    if(c==="'"){inChar=true;i++;continue;}
+    if(c==='{')d++;
+    else if(c==='}'){d--;if(d===0)return i;}
+    i++;
+  }
+  return s.length;
+}
+
+// ── IN-BROWSER C INTERPRETER (pure JS, no API, pass-by-ref arrays) ──
+async function _executeC(code) {
+  try {
+    const output = _runCInterpreter(code);
+    return { stdout: output.stdout, stderr: output.stderr };
+  } catch(e) {
+    return { stdout: '', stderr: '__BUG_NOT_FIXED__' };
+  }
+}
+
+function _runCInterpreter(src) {
+  // ── Preprocess ──
+  let code = src
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/#include\s*<[^>]+>/g, '')
+    .replace(/#define\s+\S+[^\n]*/g, '')
+    .trim();
+
+  // ── SYNTAX VALIDATOR ──
+  // Validates that every statement inside function bodies ends with ; or is a block
+  // This catches missing semicolons like: food_string[i] = 'e'  (no semicolon)
+  const syntaxError = _validateCSyntax(code);
+  if (syntaxError) return { stdout: '', stderr: '__BUG_NOT_FIXED__' };
+
+  let _stdout = '';
+  let _callDepth = 0;
+  const MAX_DEPTH = 200;
+  const MAX_STEPS = 200000;
+  let _steps = 0;
+
+  // ── HEAP: arrays/strings stored as {cells:[...]} objects so they pass by ref ──
+  function makeCharArray(str) {
+    const cells = str.split('').map(c => c.charCodeAt(0));
+    cells.push(0);
+    return { cells };
+  }
+  function makeIntArray(size) {
+    return { cells: new Array(size).fill(0) };
+  }
+  function readArray(obj) {
+    if (!obj || !obj.cells) return '';
+    let s = '';
+    for (const c of obj.cells) { if (c === 0) break; s += String.fromCharCode(c); }
+    return s;
+  }
+  function isHeapObj(v) { return v !== null && typeof v === 'object' && Array.isArray(v.cells); }
+
+  // ── Parse all top-level functions ──
+  const functions = {};
+  const funcRe = /(\w[\w\s\*]*?)\s+(\w+)\s*\(([^)]*)\)\s*\{/g;
+  let match;
+  const funcStarts = [];
+  while ((match = funcRe.exec(code)) !== null) {
+    funcStarts.push({ name: match[2], params: match[3], retType: match[1].trim(), bodyStart: match.index + match[0].length });
+  }
+  for (let i = 0; i < funcStarts.length; i++) {
+    const f = funcStarts[i];
+    const bodyEnd = _findMatchingBrace(code, f.bodyStart - 1);
+    const body = code.slice(f.bodyStart, bodyEnd);
+    functions[f.name] = { params: f.params, body, retType: f.retType };
+  }
+
+  // ── Scopes ──
+  function newScope(parent) { return { __parent__: parent, __vars__: {} }; }
+  function getVar(scope, name) {
+    let s = scope;
+    while (s) { if (name in s.__vars__) return s.__vars__[name]; s = s.__parent__; }
+    return undefined;
+  }
+  function setVar(scope, name, val) {
+    let s = scope;
+    while (s) { if (name in s.__vars__) { s.__vars__[name] = val; return; } s = s.__parent__; }
+    scope.__vars__[name] = val;
+  }
+  function declVar(scope, name, val) { scope.__vars__[name] = val; }
+
+  // ── Expressions ──
+  function evalExpr(expr, scope) {
+    if (++_steps > MAX_STEPS) throw new Error('timeout');
+    expr = expr.trim();
+    if (!expr) return 0;
+
+    if (/^"([^"]*)"$/.test(expr)) {
+      const raw = expr.slice(1,-1).replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\0/g,'\0').replace(/\\r/g,'\r');
+      return makeCharArray(raw);
+    }
+    if (expr === "'\\0'") return 0;
+    if (expr === "'\\n'") return 10;
+    if (expr === "'\\t'") return 9;
+    if (/^'\\?.'$/.test(expr)) return expr.charCodeAt(expr.length === 3 ? 1 : 2);
+    if (/^-?\d+(\.\d+)?$/.test(expr)) return parseFloat(expr);
+
+    if (expr[0]==='('&&_findClose(expr,0,'(',')')===expr.length-1) return evalExpr(expr.slice(1,-1),scope);
+
+    // Ternary
+    const tern = _splitTernary(expr);
+    if (tern) return evalExpr(tern.cond,scope) ? evalExpr(tern.t,scope) : evalExpr(tern.f,scope);
+
+    // Compound assignment
+    for (const op of ['+=','-=','*=','/=','%=']) {
+      const idx = _rfindOp(expr, op);
+      if (idx > 0) {
+        const lhs = expr.slice(0,idx).trim(), rhs = evalExpr(expr.slice(idx+op.length),scope);
+        const cur = evalLVal(lhs,scope);
+        const ops = {'+=':(a,b)=>a+b,'-=':(a,b)=>a-b,'*=':(a,b)=>a*b,'/=':(a,b)=>Math.trunc(a/b),'%=':(a,b)=>a%b};
+        const nv = ops[op](Number(cur),Number(rhs));
+        assignLVal(lhs,nv,scope); return nv;
+      }
+    }
+    // Assignment
+    const asgn = _rfindAssign(expr);
+    if (asgn > 0) {
+      const lhs = expr.slice(0,asgn).trim(), rhs = evalExpr(expr.slice(asgn+1),scope);
+      assignLVal(lhs,rhs,scope); return rhs;
+    }
+
+    // Logical OR/AND
+    const orI = _splitBinary(expr,'||'); if(orI>=0) return (evalExpr(expr.slice(0,orI),scope)||evalExpr(expr.slice(orI+2),scope))?1:0;
+    const anI = _splitBinary(expr,'&&'); if(anI>=0) return (evalExpr(expr.slice(0,anI),scope)&&evalExpr(expr.slice(anI+2),scope))?1:0;
+
+    // Comparison
+    for (const op of ['==','!=','<=','>=','<','>']) {
+      const idx = _splitBinary(expr,op);
+      if (idx>=0) {
+        const l=evalExpr(expr.slice(0,idx),scope), r=evalExpr(expr.slice(idx+op.length),scope);
+        const lv=isHeapObj(l)?readArray(l):l, rv=isHeapObj(r)?readArray(r):r;
+        const cmp={'==':(a,b)=>a==b,'!=':(a,b)=>a!=b,'<=':(a,b)=>a<=b,'>=':(a,b)=>a>=b,'<':(a,b)=>a<b,'>':(a,b)=>a>b};
+        return cmp[op](lv,rv)?1:0;
+      }
+    }
+
+    // Additive / subtractive
+    const add = _splitBinaryAddSub(expr);
+    if (add!==null) {
+      const l=evalExpr(expr.slice(0,add.idx),scope), r=evalExpr(expr.slice(add.idx+1),scope);
+      return add.op==='+' ? Number(l)+Number(r) : Number(l)-Number(r);
+    }
+
+    // Multiplicative
+    for (const op of ['*','/',  '%']) {
+      const idx = _splitBinary(expr,op);
+      if (idx>0) {
+        const l=evalExpr(expr.slice(0,idx),scope),r=evalExpr(expr.slice(idx+1),scope);
+        if(op==='*')return Number(l)*Number(r);
+        if(op==='/')return Math.trunc(Number(l)/Number(r));
+        if(op==='%')return Number(l)%Number(r);
+      }
+    }
+
+    if(expr[0]==='!'&&expr.length>1) return evalExpr(expr.slice(1),scope)?0:1;
+    if(expr[0]==='-'&&expr.length>1&&!/^\d/.test(expr[1])) return -Number(evalExpr(expr.slice(1),scope));
+
+    // Unary * dereference: get first element
+    if(expr[0]==='*'&&expr.length>1){
+      const inner=evalExpr(expr.slice(1),scope);
+      if(isHeapObj(inner)) return inner.cells[0]??0;
+      return inner;
+    }
+
+    // Pre-increment/decrement
+    if(expr.startsWith('++')){ const v=Number(evalLVal(expr.slice(2),scope))+1; assignLVal(expr.slice(2),v,scope); return v; }
+    if(expr.startsWith('--')){ const v=Number(evalLVal(expr.slice(2),scope))-1; assignLVal(expr.slice(2),v,scope); return v; }
+    // Post-increment/decrement
+    if(expr.endsWith('++')){ const lv=expr.slice(0,-2).trim(); const v=evalLVal(lv,scope); assignLVal(lv,Number(v)+1,scope); return v; }
+    if(expr.endsWith('--')){ const lv=expr.slice(0,-2).trim(); const v=evalLVal(lv,scope); assignLVal(lv,Number(v)-1,scope); return v; }
+
+    if(/^sizeof\s*\(/.test(expr)) return 4;
+
+    // Array subscript: name[idx]
+    const subMatch = expr.match(/^(\w+)\[(.+)\]$/);
+    if (subMatch) {
+      const arr = getVar(scope, subMatch[1]);
+      const idx = Math.trunc(Number(evalExpr(subMatch[2],scope)));
+      if (isHeapObj(arr)) return arr.cells[idx]??0;
+      return 0;
+    }
+
+    // Function call
+    const callMatch = expr.match(/^(\w+)\s*\(([\s\S]*)\)\s*$/);
+    if (callMatch) {
+      const fname=callMatch[1], argsStr=callMatch[2];
+      const argVals=_splitArgs(argsStr).map(a=>evalExpr(a.trim(),scope));
+      const bi=callBuiltin(fname,argVals,scope);
+      return bi!==undefined ? bi : callUser(fname,argVals,scope);
+    }
+
+    // Cast
+    const castMatch = expr.match(/^\((?:int|char|float|double|long|short|unsigned[\w\s]*|void\s*\*|\w+\s*\*?)\)\s*(.+)$/);
+    if (castMatch) return evalExpr(castMatch[1],scope);
+
+    if(expr.includes('->')||( expr.includes('.')&&!/^\d+\.\d+$/.test(expr))) return 0;
+
+    const v = getVar(scope, expr);
+    if (v !== undefined) return v;
+    return 0;
+  }
+
+  function evalLVal(expr, scope) {
+    expr = expr.trim();
+    const subMatch = expr.match(/^(\w+)\[(.+)\]$/);
+    if (subMatch) {
+      const arr = getVar(scope, subMatch[1]);
+      const idx = Math.trunc(Number(evalExpr(subMatch[2],scope)));
+      if (isHeapObj(arr)) return arr.cells[idx]??0;
+      return 0;
+    }
+    const v = getVar(scope, expr);
+    return v !== undefined ? v : 0;
+  }
+
+  function assignLVal(expr, val, scope) {
+    expr = expr.trim();
+    // Array subscript: mutate the heap object in-place (pass-by-ref semantics)
+    const subMatch = expr.match(/^(\w+)\[(.+)\]$/);
+    if (subMatch) {
+      const arr = getVar(scope, subMatch[1]);
+      const idx = Math.trunc(Number(evalExpr(subMatch[2],scope)));
+      if (isHeapObj(arr)) {
+        arr.cells[idx] = typeof val === 'string' ? val.charCodeAt(0) : Math.trunc(Number(val));
+      }
+      return;
+    }
+    // Unary dereference: *ptr = val — mutate first cell
+    if (expr[0]==='*') {
+      const ptr = evalExpr(expr.slice(1), scope);
+      if (isHeapObj(ptr)) ptr.cells[0] = typeof val==='string'?val.charCodeAt(0):Math.trunc(Number(val));
+      return;
+    }
+    setVar(scope, expr, val);
+  }
+
+  // ── Built-ins ──
+  function callBuiltin(name, args, scope) {
+    if (name==='printf')  { _stdout += _printf(_valToString(args[0]), args.slice(1)); return 0; }
+    if (name==='puts')    { _stdout += _valToString(args[0])+'\n'; return 0; }
+    if (name==='putchar') { const c=args[0]; _stdout+=typeof c==='number'?String.fromCharCode(c):String(c); return c; }
+    if (name==='strlen')  { return _valToString(args[0]).length; }
+    if (name==='strcmp')  { const a=_valToString(args[0]),b=_valToString(args[1]); return a<b?-1:a>b?1:0; }
+    if (name==='strcpy')  { if(isHeapObj(args[0])&&isHeapObj(args[1])){ args[0].cells=[...args[1].cells]; } return args[0]; }
+    if (name==='strcat')  { if(isHeapObj(args[0])&&isHeapObj(args[1])){ const s=readArray(args[0])+readArray(args[1]); args[0].cells=makeCharArray(s).cells; } return args[0]; }
+    if (name==='strncpy') { if(isHeapObj(args[0])&&isHeapObj(args[1])){ const s=readArray(args[1]).slice(0,args[2]); args[0].cells=makeCharArray(s).cells; } return args[0]; }
+    if (name==='abs'||name==='fabs') return Math.abs(Number(args[0]));
+    if (name==='sqrt')  return Math.sqrt(Number(args[0]));
+    if (name==='pow')   return Math.pow(Number(args[0]),Number(args[1]));
+    if (name==='floor') return Math.floor(Number(args[0]));
+    if (name==='ceil')  return Math.ceil(Number(args[0]));
+    if (name==='round') return Math.round(Number(args[0]));
+    if (name==='scanf'||name==='fscanf'||name==='sscanf') return 0;
+    if (name==='malloc'||name==='calloc') return makeIntArray(Number(args[0])||64);
+    if (name==='free')  return 0;
+    if (name==='exit')  throw {__exit__: args[0]??0};
+    if (name==='atoi')  return parseInt(_valToString(args[0]))||0;
+    if (name==='isalpha') { const c=Number(args[0]); return (c>=65&&c<=90)||(c>=97&&c<=122)?1:0; }
+    if (name==='isdigit') { const c=Number(args[0]); return c>=48&&c<=57?1:0; }
+    if (name==='islower') { const c=Number(args[0]); return c>=97&&c<=122?1:0; }
+    if (name==='isupper') { const c=Number(args[0]); return c>=65&&c<=90?1:0; }
+    if (name==='tolower') { const c=Number(args[0]); return c>=65&&c<=90?c+32:c; }
+    if (name==='toupper') { const c=Number(args[0]); return c>=97&&c<=122?c-32:c; }
+    return undefined;
+  }
+
+  function callUser(name, argVals, parentScope) {
+    if (!functions[name]) return 0;
+    if (++_callDepth > MAX_DEPTH) throw new Error('stack overflow');
+    const fn = functions[name];
+    const scope = newScope(null);
+    const params = fn.params.split(',').map(p=>p.trim()).filter(Boolean);
+    params.forEach((p,i) => {
+      const pname = p.replace(/\*/g,'').replace(/\[\]/g,'').trim().split(/\s+/).pop();
+      // Arrays/heap objects are passed by reference (same object reference)
+      declVar(scope, pname, argVals[i]!==undefined ? argVals[i] : 0);
+    });
+    try {
+      const ret = execBlock(fn.body, scope);
+      _callDepth--;
+      if (ret && ret.__return__ !== undefined) return ret.__return__;
+      return 0;
+    } catch(e) {
+      _callDepth--;
+      if (e && e.__exit__!==undefined) throw e;
+      throw e;
+    }
+  }
+
+  // ── Statement executor ──
+  function execBlock(code, scope) {
+    const stmts = _parseStatements(code);
+    for (const stmt of stmts) {
+      if (++_steps > MAX_STEPS) throw new Error('timeout');
+      const r = execStmt(stmt.trim(), scope);
+      if (r && (r.__return__!==undefined || r.__break__ || r.__continue__)) return r;
+    }
+    return null;
+  }
+
+  function execStmt(stmt, scope) {
+    if (!stmt || stmt===';') return null;
+
+    if (stmt[0]==='{') {
+      const inner = stmt.slice(1, _findMatchingBrace(stmt,0));
+      return execBlock(inner, newScope(scope));
+    }
+
+    if (/^return\b/.test(stmt)) {
+      const val = evalExpr(stmt.slice(6).replace(/;$/,'').trim(), scope);
+      return {__return__: val};
+    }
+    if (/^break\s*;?$/.test(stmt))    return {__break__: true};
+    if (/^continue\s*;?$/.test(stmt)) return {__continue__: true};
+
+    if (/^if\s*\(/.test(stmt)) {
+      const {cond,body,rest} = _parseIf(stmt);
+      if (evalExpr(cond,scope)) {
+        const r = execStmt(body, newScope(scope)); if(r) return r;
+      } else if (rest) {
+        const r = execStmt(rest.replace(/^else\s*/,''), newScope(scope)); if(r) return r;
+      }
+      return null;
+    }
+
+    if (/^while\s*\(/.test(stmt)) {
+      const {cond,body} = _parseWhile(stmt);
+      let iters=0;
+      while (evalExpr(cond,scope)) {
+        if(++iters>50000) break;
+        const r=execStmt(body,newScope(scope));
+        if(r?.__break__) break;
+        if(r?.__return__!==undefined) return r;
+      }
+      return null;
+    }
+
+    if (/^for\s*\(/.test(stmt)) {
+      const {init,cond,post,body} = _parseFor(stmt);
+      const fs = newScope(scope);
+      if(init) execStmt(init+';', fs);
+      let iters=0;
+      while (!cond || evalExpr(cond,fs)) {
+        if(++iters>50000) break;
+        const r=execStmt(body,newScope(fs));
+        if(r?.__break__) break;
+        if(r?.__return__!==undefined) return r;
+        if(r?.__continue__) { post&&evalExpr(post,fs); continue; }
+        post&&evalExpr(post,fs);
+      }
+      return null;
+    }
+
+    if (/^do\b/.test(stmt)) {
+      const m=stmt.match(/^do\s*(\{[\s\S]*\})\s*while\s*\(([^)]+)\)/);
+      if(m) { let iters=0; do { if(++iters>50000)break; const r=execStmt(m[1],newScope(scope)); if(r?.__break__)break; if(r?.__return__!==undefined)return r; } while(evalExpr(m[2],scope)); }
+      return null;
+    }
+
+    // Variable declaration (type name = val; or type arr[n]; or type arr[] = "str"; or type *name = expr;)
+    const declMatch = stmt.match(/^(?:const\s+)?(?:unsigned\s+)?(?:int|char|float|double|long|short|void)\s*(\*?)\s*(\w+)(?:\[(\d*)\])?\s*(?:=\s*([\s\S]+?))?\s*;$/);
+    if (declMatch) {
+      const isPtr=declMatch[1]==='*', name=declMatch[2], isArr=declMatch[3]!==undefined, initStr=declMatch[4];
+      if (isArr||isPtr) {
+        if (initStr) {
+          const iv = evalExpr(initStr, scope);
+          if (isHeapObj(iv)) { declVar(scope, name, iv); }
+          else { declVar(scope, name, makeCharArray(String(iv))); }
+        } else {
+          const sz = declMatch[3] ? parseInt(declMatch[3])||64 : 64;
+          declVar(scope, name, makeIntArray(sz));
+        }
+      } else {
+        declVar(scope, name, initStr ? evalExpr(initStr,scope) : 0);
+      }
+      return null;
+    }
+
+    const exprStmt = stmt.replace(/;$/,'').trim();
+    if (exprStmt) evalExpr(exprStmt, scope);
+    return null;
+  }
+
+  // ── printf ──
+  function _printf(fmt, args) {
+    let out='', ai=0;
+    for (let i=0; i<fmt.length; i++) {
+      if (fmt[i]==='%') {
+        i++;
+        let flags='', width='', prec='';
+        while('-+ #0'.includes(fmt[i])) flags+=fmt[i++];
+        while(/\d/.test(fmt[i])) width+=fmt[i++];
+        if(fmt[i]==='.'){i++;while(/\d/.test(fmt[i]))prec+=fmt[i++];}
+        const spec=fmt[i];
+        const val=args[ai++];
+        if(spec==='d'||spec==='i'||spec==='u') out+=_fmtInt(val,width,flags);
+        else if(spec==='f') out+=Number(val||0).toFixed(parseInt(prec)||6);
+        else if(spec==='e') out+=Number(val||0).toExponential(parseInt(prec)||6);
+        else if(spec==='c') out+=String.fromCharCode(typeof val==='number'?val:(val?.charCodeAt?.(0)??0));
+        else if(spec==='s') out+=_valToString(val);
+        else if(spec==='l'&&fmt[i+1]==='d'){out+=_fmtInt(val,width,flags);i++;}
+        else if(spec==='%') out+='%';
+        else out+='%'+spec;
+      } else if(fmt[i]==='\\') {
+        i++;
+        const esc={n:'\n',t:'\t',r:'\r','0':'\0','\\':'\\','"':'"',"'":'\'',a:'\x07',b:'\x08'};
+        out+=esc[fmt[i]]||fmt[i];
+      } else out+=fmt[i];
+    }
+    return out;
+  }
+  function _fmtInt(v,width,flags) {
+    let s=String(Math.trunc(Number(v)||0));
+    if(width){const w=parseInt(width);s=flags.includes('-')?s.padEnd(w):flags.includes('0')?s.padStart(w,'0'):s.padStart(w);}
+    return s;
+  }
+  function _valToString(v) {
+    if(v===null||v===undefined) return '';
+    if(isHeapObj(v)) return readArray(v);
+    if(typeof v==='string') return v;
+    if(typeof v==='number') return String.fromCharCode(v);
+    return String(v);
+  }
+
+  // ── Parser helpers ──
+  function _findMatchingBrace(s, start) {
+    let d=0,i=start; while(i<s.length){if(s[i]==='{')d++;else if(s[i]==='}'){d--;if(d===0)return i;}i++;} return s.length;
+  }
+  function _findClose(s,start,open,close) {
+    let d=0,i=start; while(i<s.length){if(s[i]===open)d++;else if(s[i]===close){d--;if(d===0)return i;}i++;} return s.length;
+  }
+  function _splitArgs(s) {
+    const parts=[]; let depth=0,cur='',inStr=false,inChr=false;
+    for(let i=0;i<s.length;i++){
+      const c=s[i];
+      if(inStr){ if(c==='\\'){ cur+=c+s[++i]; continue; } if(c==='"') inStr=false; cur+=c; continue; }
+      if(inChr){ if(c==='\\'){ cur+=c+s[++i]; continue; } if(c==="'") inChr=false; cur+=c; continue; }
+      if(c==='"'){ inStr=true; cur+=c; continue; }
+      if(c==="'"){ inChr=true; cur+=c; continue; }
+      if('([{'.includes(c)) depth++;
+      else if(')]}'.includes(c)) depth--;
+      if(c===','&&depth===0){ parts.push(cur); cur=''; }
+      else cur+=c;
+    }
+    if(cur.trim()) parts.push(cur);
+    return parts;
+  }
+  function _splitBinary(expr, op) {
+    let depth=0,inStr=false;
+    for(let i=expr.length-op.length;i>=0;i--){
+      if(expr[i]==='"')inStr=!inStr;if(inStr)continue;
+      if(')]}'.includes(expr[i]))depth++;if('([{'.includes(expr[i]))depth--;
+      if(depth===0&&expr.slice(i,i+op.length)===op){
+        const a=expr[i+op.length]||'';
+        // look past spaces for the real preceding char
+        let pi=i-1; while(pi>=0&&expr[pi]===' ')pi--;
+        const b=expr[pi]||'';
+        if(op==='='&&('!=<>=+-%*/'.includes(b)||a==='='))continue;
+        if(op==='<'&&(a==='='||a==='<'))continue;
+        if(op==='>'&&(a==='='||a==='>'))continue;
+        if(op==='*'&&i===0)continue;
+        if(op==='/'&&i===0)continue;
+        return i;
+      }
+    }
+    return -1;
+  }
+  function _rfindAssign(expr) {
+    let depth=0,inStr=false;
+    for(let i=expr.length-1;i>0;i--){
+      if(expr[i]==='"')inStr=!inStr;if(inStr)continue;
+      if(')]}'.includes(expr[i]))depth++;if('([{'.includes(expr[i]))depth--;
+      if(depth===0&&expr[i]==='='){
+        const a=expr[i+1]||'';
+        let pi=i-1; while(pi>=0&&expr[pi]===' ')pi--;
+        const b=expr[pi]||'';
+        if('!=<>+-%*/&|^'.includes(b)||a==='=')continue;
+        return i;
+      }
+    }
+    return -1;
+  }
+  function _rfindOp(expr, op) {
+    const idx=expr.lastIndexOf(op); if(idx<0)return -1;
+    // make sure it's not part of a longer op
+    const a=expr[idx+op.length]||'';
+    if(a==='=')return -1;
+    return idx;
+  }
+  function _splitBinaryAddSub(expr) {
+    let depth=0,inStr=false;
+    for(let i=expr.length-1;i>0;i--){
+      if(expr[i]==='"')inStr=!inStr;if(inStr)continue;
+      if(')]}'.includes(expr[i]))depth++;if('([{'.includes(expr[i]))depth--;
+      if(depth===0&&(expr[i]==='+'||expr[i]==='-')){
+        if(expr[i-1]===expr[i]||expr[i+1]===expr[i])continue;
+        if(expr[i+1]==='=')continue;
+        // look past spaces to find the real char before the operator
+        let prev=i-1; while(prev>0&&expr[prev]===' ')prev--;
+        if(/[\w)\]'"]/.test(expr[prev]))return {idx:i,op:expr[i]};
+      }
+    }
+    return null;
+  }
+  function _splitTernary(expr) {
+    let depth=0;
+    for(let i=0;i<expr.length;i++){
+      if('([{'.includes(expr[i]))depth++;if(')]}'.includes(expr[i]))depth--;
+      if(depth===0&&expr[i]==='?'){
+        const cond=expr.slice(0,i),rest=expr.slice(i+1);
+        let d2=0;
+        for(let j=0;j<rest.length;j++){
+          if('([{'.includes(rest[j]))d2++;if(')]}'.includes(rest[j]))d2--;
+          if(d2===0&&rest[j]===':')return{cond,t:rest.slice(0,j),f:rest.slice(j+1)};
+        }
+      }
+    }
+    return null;
+  }
+  function _parseStatements(code) {
+    const stmts=[]; let i=0,cur='',parenDepth=0;
+    while(i<code.length){
+      const c=code[i];
+      if(c==='"'){cur+=c;i++;while(i<code.length&&code[i]!=='"'){if(code[i]==='\\'){cur+=code[i++];}cur+=code[i++];}cur+=(code[i++]||'');}
+      else if(c==="'"){cur+=c;i++;while(i<code.length&&code[i]!=="'"){if(code[i]==='\\'){cur+=code[i++];}cur+=code[i++];}cur+=(code[i++]||'');}
+      else if(c==='{'){const end=_findMatchingBrace(code,i);cur+=code.slice(i,end+1);i=end+1;stmts.push(cur.trim());cur='';parenDepth=0;}
+      else if(c==='('){parenDepth++;cur+=c;i++;}
+      else if(c===')'){parenDepth--;cur+=c;i++;}
+      else if(c===';'&&parenDepth===0){cur+=c;i++;stmts.push(cur.trim());cur='';}
+      else{cur+=c;i++;}
+    }
+    if(cur.trim())stmts.push(cur.trim());
+    return stmts.filter(Boolean);
+  }
+  function _parseIf(stmt) {
+    const cs=stmt.indexOf('(')+1, ce=_findClose(stmt,cs-1,'(',')')
+    const cond=stmt.slice(cs,ce);
+    let rest=stmt.slice(ce+1).trim(), body='', elseStr='';
+    if(rest[0]==='{'){const be=_findMatchingBrace(rest,0);body=rest.slice(0,be+1);elseStr=rest.slice(be+1).trim();}
+    else{const semi=rest.indexOf(';');body=rest.slice(0,semi+1).trim();elseStr=rest.slice(semi+1).trim();}
+    return{cond,body,rest:elseStr.startsWith('else')?elseStr:null};
+  }
+  function _parseWhile(stmt) {
+    const cs=stmt.indexOf('(')+1, ce=_findClose(stmt,cs-1,'(',')')
+    return{cond:stmt.slice(cs,ce), body:stmt.slice(ce+1).trim()};
+  }
+  function _parseFor(stmt) {
+    const cs=stmt.indexOf('(')+1, ce=_findClose(stmt,cs-1,'(',')')
+    const parts=stmt.slice(cs,ce);
+    const segs=[]; let d2=0,cur2='';
+    for(const c of parts){if('([{'.includes(c))d2++;if(')]}'.includes(c))d2--;if(c===';'&&d2===0){segs.push(cur2.trim());cur2='';}else cur2+=c;}
+    segs.push(cur2.trim());
+    return{init:segs[0]||'',cond:segs[1]||'',post:segs[2]||'',body:stmt.slice(ce+1).trim()};
+  }
+
+  // ── Run main() ──
+  try { callUser('main',[],newScope(null)); }
+  catch(e) { if(!e||e.__exit__===undefined) return{stdout:_stdout,stderr:'__BUG_NOT_FIXED__'}; }
+  return { stdout: _stdout.replace(/\n$/,''), stderr: '' };
+}
 
 // ── State ────────────────────────────────────────────────────
 let allProblems   = [];   // all active problems for this round + lang
@@ -516,6 +1272,7 @@ async function beginSession() {
   });
 
   setTimeout(activateLockdown, 900);
+  _prewarmPyodide(); // Start loading Python runtime in background
 }
 
 // ── LOAD PROBLEM INTO UI ──────────────────────────────────────
@@ -658,32 +1415,16 @@ async function runCode() {
 
   let stdout = '', stderr = '';
   try {
-    if (JUDGE0_KEY === 'YOUR_RAPIDAPI_KEY') {
-      // DEMO MODE — simulates execution
-      await new Promise(r => setTimeout(r, 1000));
-      const expected = (problem.expectedOutput || '').trim();
-      stdout = (code.trim() !== (problem.buggyCode || '').trim()) ? expected : 'RuntimeError: Bug not fixed';
-    } else {
-      const res = await fetch(`${JUDGE0_URL}?base64_encoded=false&wait=true`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-RapidAPI-Key': JUDGE0_KEY,
-          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
-        },
-        body: JSON.stringify({
-          source_code: code,
-          language_id: LANG_IDS[problem.language],
-          stdin: '', cpu_time_limit: 10, memory_limit: 256000
-        })
-      });
-      const d = await res.json();
-      stdout = d.stdout || '';
-      stderr = d.stderr || d.compile_output || '';
-      if (d.status?.id > 3) stderr = (d.status.description + '\n' + stderr).trim();
+    const lang = problem.language;
+    if (lang === 'Python' && !_pyodideReady) {
+      document.getElementById('op-output').innerHTML =
+        `<div style="display:flex;align-items:center;gap:10px;color:var(--text3);"><span class="spin"></span> Loading Python runtime (first run ~10s)...</div>`;
     }
+    const result = await executeCode(lang, code);
+    stdout = result.stdout || '';
+    stderr = result.stderr || '';
   } catch(e) {
-    stderr = 'Network error: ' + e.message;
+    stderr = 'Execution error: ' + e.message;
   }
 
   const outHtml = buildOutputHtml(stdout, stderr);
@@ -699,7 +1440,18 @@ async function runCode() {
 }
 
 function buildOutputHtml(stdout, stderr) {
-  if (stderr) return `<div style="color:var(--red);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⛔ Error</div><pre style="color:var(--red);">${escapeHtml(stderr)}</pre>${stdout?`<div style="margin-top:10px;color:var(--text3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Stdout</div><pre>${escapeHtml(stdout)}</pre>`:''}`;
+  if (stderr) {
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;gap:12px;text-align:center;">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:800;color:var(--red);letter-spacing:1px;">BUG NOT FIXED</div>
+        <div style="font-size:12px;color:var(--text3);max-width:240px;line-height:1.6;">Your code has errors or produces incorrect output. Review the logic and try again.</div>
+        ${stdout ? `<div style="width:100%;margin-top:8px;text-align:left;"><div style="color:var(--text3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Partial Output</div><pre style="font-size:11px;color:var(--text2);">${escapeHtml(stdout)}</pre></div>` : ''}
+      </div>`;
+  }
   return `<div style="color:var(--neon);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Output</div><pre>${escapeHtml(stdout)||'<span style="color:var(--text3);">(no output)</span>'}</pre>`;
 }
 
@@ -710,6 +1462,8 @@ async function evaluate(stdout, stderr, code) {
   const passed   = !stderr && actual === expected;
   const elapsed  = getElapsed();
   const st       = problemStates[problem.id];
+  // User-facing output: if there's a stderr/error, show friendly message
+  const displayActual = stderr ? 'Bug not fixed — code has errors' : (actual || '(no output)');
 
   // Feature 2: Send code to admin
   await sendToAdmin(code, actual, stderr, passed, elapsed);
@@ -741,7 +1495,7 @@ async function evaluate(stdout, stderr, code) {
       <span class="cmp-lbl">Expected</span>
       <div class="cmp-box exp">${escapeHtml(expected||'(empty)')}</div>
       <span class="cmp-lbl">Your Output</span>
-      <div class="cmp-box act">${escapeHtml(actual||stderr||'(empty)')}</div>
+      <div class="cmp-box act">${escapeHtml(displayActual)}</div>
     </div>
     <div class="eval-note">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
