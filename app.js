@@ -51,6 +51,14 @@ let _dbAuthFailed = false;
 function _handleDbError(error) {
   if (!error) return;
   const status = error.status || error?.cause?.status;
+  const is409 = status === 409 || error.code === '23505';
+  if (is409) {
+    try {
+      if (typeof Toast !== 'undefined' && Toast?.show) Toast.show('Database conflict (409). Duplicate row already exists.', 'warn', 6000);
+    } catch {}
+    console.warn('Supabase 409 conflict:', error);
+    return;
+  }
   const is401 = status === 401 || error.code === 401;
   if (!is401) return;
   if (_dbAuthFailed) return;
@@ -221,7 +229,28 @@ const DB = {
       actual_output: sub.actualOutput || '', result: sub.result,
       time_taken: sub.timeTaken || '', terminated: sub.terminated || false,
     }]).select().single();
-    if (error) { _handleDbError(error); console.error(error); return null; }
+    if (error) {
+      _handleDbError(error);
+      const status = error.status || error?.cause?.status;
+      const is409 = status === 409 || error.code === '23505';
+      if (is409) {
+        // If a unique constraint prevents duplicates, return the existing row.
+        try {
+          let q = _supa.get().from('submissions').select('*')
+            .eq('participant_name', sub.participantName)
+            .eq('round', sub.round || 1)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (sub.problemId) q = q.eq('problem_id', sub.problemId);
+          if (sub.timeTaken) q = q.eq('time_taken', sub.timeTaken);
+          const { data: ex, error: e2 } = await q.maybeSingle();
+          if (!e2 && ex) return _mapSub(ex);
+        } catch {}
+        return null;
+      }
+      console.error(error);
+      return null;
+    }
     return _mapSub(data);
   },
 
@@ -250,7 +279,28 @@ const DB = {
       actual_output: sub.actualOutput || '', expected_output: sub.expectedOutput || '',
       result: sub.result, time_taken: sub.timeTaken || '',
     }]).select().single();
-    if (error) { _handleDbError(error); console.error(error); return null; }
+    if (error) {
+      _handleDbError(error);
+      const status = error.status || error?.cause?.status;
+      const is409 = status === 409 || error.code === '23505';
+      if (is409) {
+        // Return existing row if duplicate insert is blocked by a unique constraint.
+        try {
+          let q = _supa.get().from('admin_submissions').select('*')
+            .eq('participant_name', sub.participantName)
+            .eq('round', sub.round || 1)
+            .order('submitted_at', { ascending: false })
+            .limit(1);
+          if (sub.problemId) q = q.eq('problem_id', sub.problemId);
+          if (sub.timeTaken) q = q.eq('time_taken', sub.timeTaken);
+          const { data: ex, error: e2 } = await q.maybeSingle();
+          if (!e2 && ex) return ex;
+        } catch {}
+        return null;
+      }
+      console.error(error);
+      return null;
+    }
     return data;
   },
 
